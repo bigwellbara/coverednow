@@ -47,4 +47,5 @@ export function getVerificationService(): VerificationService {
   }));
 }
 
+export { OtpRecipientUnreachableError } from "./services/otp-service";
 export { VERIFICATION_ERROR_MESSAGES } from "./services/verification-service";

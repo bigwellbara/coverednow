@@ -32,6 +32,9 @@ export type OtpSender = {
   send(phone: string, code: string): Promise<void>;
 };
 
+/** The number cannot receive codes on this channel, such as not being on WhatsApp. */
+export class OtpRecipientUnreachableError extends Error {}
+
 export type OtpRequestResult = { ok: true } | { ok: false; reason: "RATE_LIMITED" };
 
 export function createOtpService(deps: {

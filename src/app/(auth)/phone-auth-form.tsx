@@ -40,7 +40,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
       setPhone(result.phone);
       setCode("");
       setStep("code");
-      setNotice(`We sent a 6-digit code to ${result.phone}.`);
+      setNotice(`We sent a 6-digit code to ${result.phone} on WhatsApp.`);
     });
 
   const verifyCode = () =>
@@ -134,7 +134,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
           )}
           <div>
             <label htmlFor="phone" className="field-label">
-              Mobile number
+              WhatsApp number
             </label>
             <input
               id="phone"

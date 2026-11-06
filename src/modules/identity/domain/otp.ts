@@ -41,3 +41,9 @@ export function otpCodeMatches(
 export function hashIp(secret: string, ip: string): string {
   return hmac(secret, `ip:${ip}`);
 }
+
+/** Plain text with no links: it goes to people who have never messaged us. */
+export function otpMessage(code: string): string {
+  const minutes = OTP_POLICY.ttlMs / MINUTE;
+  return `Your CoveredNow code is ${code}. It expires in ${minutes} minutes. Don't share it with anyone.`;
+}

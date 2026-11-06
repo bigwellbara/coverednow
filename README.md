@@ -46,6 +46,7 @@ Side exits: `REJECTED`, `EXPIRED`, `CANCELLED`, `DISPUTED`.
 | Validation | Zod |
 | Styling | Tailwind CSS |
 | Auth | NextAuth v4, phone number and one-time code |
+| WhatsApp | Baileys (unofficial client), for sign-in codes |
 | Icons | Lucide |
 | Tests | Vitest |
 | Local database | Docker Compose |
@@ -136,13 +137,32 @@ Open <http://localhost:3000>. The health check is at <http://localhost:3000/api/
 
 ### Signing in during development
 
-No SMS or WhatsApp provider is connected yet. In development, sign-in codes are printed in the terminal running `npm run dev`. With a production build, sending a code fails with an error until a provider is added in `src/modules/identity/adapters/otp-sender.ts`.
+By default, sign-in codes are printed in the terminal running `npm run dev`, so you don't need WhatsApp to work on the app. A production build refuses to send codes unless WhatsApp is set up.
 
 To reach the admin review queue at `/admin/verifications`, make yourself an admin, then sign in with that number:
 
 ```bash
 npm run admin:create -- +263771234567 "Your Name"
 ```
+
+### Sending codes over WhatsApp
+
+Codes are sent through [Baileys](https://github.com/WhiskeySockets/Baileys), which connects as a linked device on an ordinary WhatsApp account.
+
+```bash
+# 1. Stop the app, then link the account that will send codes
+npm run whatsapp:pair -- 263771234567
+
+# 2. In .env, set OTP_DELIVERY="whatsapp", then start the app again
+npm run dev
+```
+
+Things to know:
+
+- **Use a dedicated number, never a personal one.** Baileys is unofficial and against WhatsApp's terms, so WhatsApp can ban the number without warning. If it does, nobody can sign in until another number is linked.
+- **It needs a long-running server and exactly one running instance.** It holds a live connection, so it won't work on serverless hosting such as Vercel, and two instances would knock each other off.
+- **Keep `WHATSAPP_AUTH_DIR` private and backed up.** It is stored unencrypted and gives access to the linked account. Losing it means linking again.
+- If the link is lost, the logs say so and sending fails until you run the pairing script again. Restarting the app isn't needed.
 
 ### Windows notes
 
@@ -166,6 +186,8 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `OTP_SECRET` | Protects stored sign-in codes and hashed IP addresses |
 | `DOCUMENT_STORAGE_DIR` | Private folder for uploaded documents; must not be served by the web server |
 | `DOCUMENT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes. Back it up: losing it makes stored documents unreadable |
+| `OTP_DELIVERY` | Set to `whatsapp` to send sign-in codes over WhatsApp |
+| `WHATSAPP_AUTH_DIR` | Folder for the linked WhatsApp session; keep it private |
 
 ### Scripts
 
@@ -179,6 +201,7 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:studio` | Browse the database in Prisma Studio |
 | `npm run admin:create` | Create an admin, or promote an existing user |
+| `npm run whatsapp:pair` | Link the WhatsApp account that sends sign-in codes |
 
 ---
 

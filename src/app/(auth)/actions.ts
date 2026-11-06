@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { getOtpService } from "@/modules/identity";
+import { OtpRecipientUnreachableError, getOtpService } from "@/modules/identity";
 import { signUpDetailsSchema } from "@/modules/identity/domain/account";
 import { normalizeZimbabweMobile } from "@/modules/identity/domain/phone";
 
@@ -45,6 +45,13 @@ export async function requestOtpAction(input: {
     }
     return { ok: true, phone };
   } catch (error) {
+    if (error instanceof OtpRecipientUnreachableError) {
+      return {
+        ok: false,
+        error:
+          "We couldn't find this number on WhatsApp. Please use the number you have WhatsApp on.",
+      };
+    }
     console.error("Could not send sign-in code", error);
     return {
       ok: false,
