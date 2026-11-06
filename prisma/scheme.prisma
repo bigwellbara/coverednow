@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  GUARDIAN
+  DONOR
+  SCHOOL_CONTACT
+  ADMIN
+  SPONSOR
+}
+
+enum BillStatus {
+  DRAFT
+  PENDING_SCHOOL
+  SCHOOL_CONFIRMED
+  PARTIALLY_FUNDED
+  FUNDED
+  PAID
+  RECEIPT_CONFIRMED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  DISPUTED
+}
+
+enum BillCategory {
+  SCHOOL_FEES
+}
+
+enum Visibility {
+  PUBLIC
+  ALIAS
+  ANONYMOUS
+}
+
+enum BillerType {
+  UNIVERSITY
+  COLLEGE
+  HIGH_SCHOOL
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  CORRECTED
+  REJECTED
+  RECEIPT
+}
+
+enum DonationStatus {
+  INITIATED
+  SETTLED
+  FAILED
+  REFUNDED
+}
+
+enum UpdateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ---------------------------------------------------------------- identity
+
+model User {
+  id           String        @id @default(cuid())
+  role         Role
+  phone        String        @unique
+  email        String?
+  name         String
+  createdAt    DateTime      @default(now())
+  verification Verification?
+  donorProfile DonorProfile?
+}
+
+model Verification {
+  id         String             @id @default(cuid())
+  userId     String             @unique
+  user       User               @relation(fields: [userId], references: [id])
+  status     VerificationStatus @default(PENDING)
+  idDocUrl   String
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime           @default(now())
+}
+
+// ----------------------------------------------------------------- billing
+
+model Biller {
+  id            String          @id @default(cuid())
+  name          String
+  type          BillerType
+  city          String
+  verified      Boolean         @default(false)
+  payoutMethod  String
+  payoutDetails Json
+  contacts      BillerContact[]
+  bills         Bill[]
+  createdAt     DateTime        @default(now())
+}
+
+model BillerContact {
+  id            String             @id @default(cuid())
+  billerId      String
+  biller        Biller             @relation(fields: [billerId], references: [id])
+  name          String
+  phone         String
+  email         String?
+  roleTitle     String
+  verifiedAt    DateTime?
+  confirmations BillConfirmation[]
+}
+
+model Bill {
+  id              String             @id @default(cuid())
+  ownerId         String
+  billerId        String
+  biller          Biller             @relation(fields: [billerId], references: [id])
+  regNumber       String
+  term            String
+  claimedAmount   Decimal            @db.Decimal(12, 2)
+  confirmedAmount Decimal?           @db.Decimal(12, 2)
+  currency        String             @default("USD")
+  category        BillCategory       @default(SCHOOL_FEES)
+  dueDate         DateTime
+  documentUrl     String
+  documentHash    String
+  status          BillStatus         @default(DRAFT)
+  confirmations   BillConfirmation[]
+  donations       Donation[]
+  payout          Payout?
+  updates         StudentUpdate[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([billerId, regNumber, term])
+  @@index([status])
+}
+
+model BillConfirmation {
+  id              String             @id @default(cuid())
+  billId          String
+  bill            Bill               @relation(fields: [billId], references: [id])
+  contactId       String
+  contact         BillerContact      @relation(fields: [contactId], references: [id])
+  status          ConfirmationStatus @default(PENDING)
+  confirmedAmount Decimal?           @db.Decimal(12, 2)
+  token           String             @unique
+  expiresAt       DateTime
+  respondedAt     DateTime?
+}
+
+// ---------------------------------------------------------------- payments
+
+model Donation {
+  id          String         @id @default(cuid())
+  billId      String
+  bill        Bill           @relation(fields: [billId], references: [id])
+  donorId     String
+  amount      Decimal        @db.Decimal(12, 2)
+  platformTip Decimal        @default(0) @db.Decimal(12, 2)
+  gatewayFee  Decimal        @default(0) @db.Decimal(12, 2)
+  currency    String
+  visibility  Visibility     @default(PUBLIC)
+  gatewayRef  String         @unique
+  status      DonationStatus @default(INITIATED)
+  settledAt   DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@index([billId])
+  @@index([donorId])
+}
+
+model Payout {
+  id        String   @id @default(cuid())
+  billId    String   @unique
+  bill      Bill     @relation(fields: [billId], references: [id])
+  amount    Decimal  @db.Decimal(12, 2)
+  method    String
+  reference String
+  proofUrl  String
+  paidAt    DateTime
+}
+
+// Written in the same transaction as a state change so events are never lost.
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([processedAt, createdAt])
+}
+
+// -------------------------------------------------------------- engagement
+
+model DonorProfile {
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id])
+  displayName String
+  visibility  Visibility   @default(PUBLIC)
+  tier        String       @default("BRONZE")
+  streakWeeks Int          @default(0)
+  badges      DonorBadge[]
+}
+
+model Badge {
+  id     String       @id @default(cuid())
+  key    String       @unique
+  name   String
+  icon   String
+  awards DonorBadge[]
+}
+
+model DonorBadge {
+  id        String       @id @default(cuid())
+  donorId   String
+  donor     DonorProfile @relation(fields: [donorId], references: [id])
+  badgeId   String
+  badge     Badge        @relation(fields: [badgeId], references: [id])
+  awardedAt DateTime     @default(now())
+
+  @@unique([donorId, badgeId])
+}
+
+model LeaderboardSnapshot {
+  id      String  @id @default(cuid())
+  period  String
+  metric  String
+  donorId String
+  rank    Int
+  value   Decimal @db.Decimal(14, 2)
+
+  @@index([period, metric, rank])
+}
+
+model StudentUpdate {
+  id        String       @id @default(cuid())
+  billId    String
+  bill      Bill         @relation(fields: [billId], references: [id])
+  body      String
+  status    UpdateStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+}
+
+// ------------------------------------------------------------------- audit
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
