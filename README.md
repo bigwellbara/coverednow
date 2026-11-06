@@ -149,7 +149,7 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `npm run build` | Generate the Prisma client and build for production |
 | `npm start` | Run the production build |
 | `npm run typecheck` | TypeScript check with no output files |
-| `npm test` | Run the Vitest suite (reports "no test files" until tests are added) |
+| `npm test` | Run the Vitest suite |
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:studio` | Browse the database in Prisma Studio |
 
@@ -187,7 +187,7 @@ Found a security problem? Please report it privately to the maintainers rather t
 
 - [x] App skeleton and health check
 - [x] Database schema (identity, billing, payments, engagement)
-- [ ] Bill status rules with tests
+- [x] Bill status rules with tests
 - [ ] Student and guardian onboarding and verification
 - [ ] School onboarding and contact verification
 - [ ] Bill submission and school confirmation flow
