@@ -162,23 +162,32 @@ model Biller {
   type          BillerType
   city          String
   verified      Boolean         @default(false)
-  payoutMethod  String
-  payoutDetails Json
+  // Set by admins only, and may be added after the school is created.
+  payoutMethod  String?
+  // Encrypted. Read it through the billing module, never directly.
+  payoutDetails Json?
   contacts      BillerContact[]
   bills         Bill[]
   createdAt     DateTime        @default(now())
 }
 
 model BillerContact {
-  id            String             @id @default(cuid())
-  billerId      String
-  biller        Biller             @relation(fields: [billerId], references: [id])
-  name          String
-  phone         String
-  email         String?
-  roleTitle     String
-  verifiedAt    DateTime?
-  confirmations BillConfirmation[]
+  id               String             @id @default(cuid())
+  billerId         String
+  biller           Biller             @relation(fields: [billerId], references: [id])
+  name             String
+  phone            String
+  email            String?
+  roleTitle        String
+  verifiedAt       DateTime?
+  verifiedBy       String?
+  // How the contact was checked, such as a call to the school's listed number.
+  verificationNote String?
+  // Kept rather than deleted, because past confirmations refer to contacts.
+  removedAt        DateTime?
+  confirmations    BillConfirmation[]
+
+  @@index([billerId])
 }
 
 model Bill {

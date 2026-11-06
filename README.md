@@ -6,7 +6,7 @@ CoveredNow lets verified students (or their guardians) list school-confirmed fee
 
 CoveredNow is a product of [FirmwareNerds](https://github.com/bigwellbara/coverednow). Launch market: Zimbabwe, starting with universities, colleges and high schools.
 
-> **Status: early development.** Sign-up, identity verification and the admin review queue are in place. The core flows (school confirmation, donations, payouts) are being built next. See the [Roadmap](#roadmap).
+> **Status: early development.** Sign-up, identity verification, the admin review queue and school management are in place. The core flows (school confirmation, donations, payouts) are being built next. See the [Roadmap](#roadmap).
 
 ---
 
@@ -87,7 +87,7 @@ coverednow/
     lib/
       db.ts                  Prisma client
     modules/                 Domain modules (added as each is built)
-      billing/               Bill status rules
+      billing/               Bill status rules, schools, contacts
       identity/              Accounts, sign-in, verification
   scripts/                   Operational scripts
   docker-compose.yml         Local PostgreSQL
@@ -139,11 +139,25 @@ Open <http://localhost:3000>. The health check is at <http://localhost:3000/api/
 
 By default, sign-in codes are printed in the terminal running `npm run dev`, so you don't need WhatsApp to work on the app. A production build refuses to send codes unless WhatsApp is set up.
 
-To reach the admin review queue at `/admin/verifications`, make yourself an admin, then sign in with that number:
+For ready-made test accounts and schools, run:
 
 ```bash
-npm run admin:create -- +263771234567 "Your Name"
+npm run db:seed-test
 ```
+
+| Number | Account |
+|---|---|
+| `0771000001` | Admin |
+| `0771000002` | Student who hasn't started |
+| `0771000003` | Guardian who hasn't started |
+| `0771000004` | Student waiting in the review queue |
+| `0771000005` | Student whose application was sent back |
+| `0771000006` | Verified student |
+| `0771000007` | Verified guardian |
+
+The script only runs against a local database and with WhatsApp delivery off, because these numbers are made up and may belong to real people. Running it again leaves existing data alone and clears the code limits for these numbers, which helps if you see "Too many codes requested".
+
+To make your own admin instead, run `npm run admin:create -- +263771234567 "Your Name"`. Admins manage schools at `/admin/schools` and review applications at `/admin/verifications`.
 
 ### Sending codes over WhatsApp
 
@@ -186,6 +200,7 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `OTP_SECRET` | Protects stored sign-in codes and hashed IP addresses |
 | `DOCUMENT_STORAGE_DIR` | Private folder for uploaded documents; must not be served by the web server |
 | `DOCUMENT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes. Back it up: losing it makes stored documents unreadable |
+| `PAYOUT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes, for school payout details. Back it up: losing it means re-entering them |
 | `OTP_DELIVERY` | Set to `whatsapp` to send sign-in codes over WhatsApp |
 | `WHATSAPP_AUTH_DIR` | Folder for the linked WhatsApp session; keep it private |
 
@@ -200,6 +215,7 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `npm test` | Run the Vitest suite |
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:studio` | Browse the database in Prisma Studio |
+| `npm run db:seed-test` | Create test accounts and schools for local development |
 | `npm run admin:create` | Create an admin, or promote an existing user |
 | `npm run whatsapp:pair` | Link the WhatsApp account that sends sign-in codes |
 
@@ -239,7 +255,7 @@ Found a security problem? Please report it privately to the maintainers rather t
 - [x] Database schema (identity, billing, payments, engagement)
 - [x] Bill status rules with tests
 - [x] Student and guardian onboarding and verification
-- [ ] School onboarding and contact verification
+- [x] School onboarding and contact verification
 - [ ] Bill submission and school confirmation flow
 - [ ] Public bill feed and bill detail pages
 - [ ] Paynow checkout, webhooks and ledger
