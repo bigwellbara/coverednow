@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { DocumentFiles } from "../../../lib/encrypted-file-store";
 import type { ApplicantRole, StudentDetails } from "../domain/account";
 import {
   MAX_DOCUMENT_BYTES,
@@ -69,13 +70,6 @@ export type VerificationStore = {
   ): Promise<boolean>;
   findDocument(id: string): Promise<DocumentRecord | null>;
   recordDocumentView(documentId: string, viewerId: string): Promise<void>;
-};
-
-/** Private storage for documents. Keys are chosen by the implementation. */
-export type DocumentFiles = {
-  put(bytes: Uint8Array): Promise<string>;
-  get(key: string): Promise<Uint8Array>;
-  delete(key: string): Promise<void>;
 };
 
 export type VerificationError =

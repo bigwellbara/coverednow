@@ -1,4 +1,5 @@
 import { CircleAlert, CircleCheck, Clock, FileCheck } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppHeader } from "@/components/app-header";
 import { getVerificationService } from "@/modules/identity";
@@ -65,8 +66,9 @@ export default async function OnboardingPage() {
             title="Your account is verified"
             icon={<CircleCheck className={iconClass} aria-hidden />}
           >
-            You&apos;ll be able to submit a fee bill here once bill submission
-            opens.
+            <Link href="/bills" className="font-medium underline">
+              Submit a fee bill
+            </Link>
           </Banner>
         )}
         {stage === "REJECTED" && (

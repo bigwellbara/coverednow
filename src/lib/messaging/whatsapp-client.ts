@@ -1,5 +1,3 @@
-import { OtpRecipientUnreachableError } from "../services/otp-service";
-
 export type WhatsAppConnectionUpdate =
   | { state: "open" }
   /** The session has no linked account, so WhatsApp is offering a QR code. */
@@ -15,6 +13,9 @@ export type WhatsAppSocket = {
 };
 
 export class WhatsAppUnavailableError extends Error {}
+
+/** The number has no WhatsApp account. */
+export class RecipientNotOnWhatsAppError extends Error {}
 
 /**
  * Closes where reconnecting cannot help, and could make things worse: logged out,
@@ -171,7 +172,7 @@ export function createWhatsAppClient(options: {
     async sendText(phone: string, text: string): Promise<void> {
       const opened = await whenOpen();
       const contact = await withTimeout(opened.lookup(phone.replace(/^\+/, "")));
-      if (!contact?.exists) throw new OtpRecipientUnreachableError();
+      if (!contact?.exists) throw new RecipientNotOnWhatsAppError();
       await withTimeout(opened.sendText(contact.jid, text));
     },
   };

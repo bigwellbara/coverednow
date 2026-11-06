@@ -6,7 +6,13 @@ import {
 } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { DocumentFiles } from "../services/verification-service";
+
+/** Private storage for documents. Keys are chosen by the implementation. */
+export type DocumentFiles = {
+  put(bytes: Uint8Array): Promise<string>;
+  get(key: string): Promise<Uint8Array>;
+  delete(key: string): Promise<void>;
+};
 
 const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;
