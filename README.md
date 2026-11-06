@@ -6,7 +6,7 @@ CoveredNow lets verified students (or their guardians) list school-confirmed fee
 
 CoveredNow is a product of [FirmwareNerds](https://github.com/bigwellbara/coverednow). Launch market: Zimbabwe, starting with universities, colleges and high schools.
 
-> **Status: early development.** The app skeleton and database schema are in place. The core flows (school confirmation, donations, payouts) are being built next. See the [Roadmap](#roadmap).
+> **Status: early development.** Sign-up, identity verification and the admin review queue are in place. The core flows (school confirmation, donations, payouts) are being built next. See the [Roadmap](#roadmap).
 
 ---
 
@@ -44,6 +44,9 @@ Side exits: `REJECTED`, `EXPIRED`, `CANCELLED`, `DISPUTED`.
 | Database | PostgreSQL 16 |
 | ORM | Prisma |
 | Validation | Zod |
+| Styling | Tailwind CSS |
+| Auth | NextAuth v4, phone number and one-time code |
+| WhatsApp | Baileys (unofficial client), for sign-in codes |
 | Icons | Lucide |
 | Tests | Vitest |
 | Local database | Docker Compose |
@@ -84,6 +87,9 @@ coverednow/
     lib/
       db.ts                  Prisma client
     modules/                 Domain modules (added as each is built)
+      billing/               Bill status rules
+      identity/              Accounts, sign-in, verification
+  scripts/                   Operational scripts
   docker-compose.yml         Local PostgreSQL
   .env.example               Environment variable template
 ```
@@ -121,12 +127,47 @@ npx prisma migrate dev
 npm run dev
 ```
 
+Before the first run, replace the `change-me` values in `.env` with random secrets. Run this once per value:
+
+```bash
+node -p "require('crypto').randomBytes(32).toString('base64')"
+```
+
 Open <http://localhost:3000>. The health check is at <http://localhost:3000/api/health> and should return `{"status":"ok"}`.
+
+### Signing in during development
+
+By default, sign-in codes are printed in the terminal running `npm run dev`, so you don't need WhatsApp to work on the app. A production build refuses to send codes unless WhatsApp is set up.
+
+To reach the admin review queue at `/admin/verifications`, make yourself an admin, then sign in with that number:
+
+```bash
+npm run admin:create -- +263771234567 "Your Name"
+```
+
+### Sending codes over WhatsApp
+
+Codes are sent through [Baileys](https://github.com/WhiskeySockets/Baileys), which connects as a linked device on an ordinary WhatsApp account.
+
+```bash
+# 1. Stop the app, then link the account that will send codes
+npm run whatsapp:pair -- 263771234567
+
+# 2. In .env, set OTP_DELIVERY="whatsapp", then start the app again
+npm run dev
+```
+
+Things to know:
+
+- **Use a dedicated number, never a personal one.** Baileys is unofficial and against WhatsApp's terms, so WhatsApp can ban the number without warning. If it does, nobody can sign in until another number is linked.
+- **It needs a long-running server and exactly one running instance.** It holds a live connection, so it won't work on serverless hosting such as Vercel, and two instances would knock each other off.
+- **Keep `WHATSAPP_AUTH_DIR` private and backed up.** It is stored unencrypted and gives access to the linked account. Losing it means linking again.
+- If the link is lost, the logs say so and sending fails until you run the pairing script again. Restarting the app isn't needed.
 
 ### Windows notes
 
 - **PowerShell blocks `npm` scripts?** Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, or use `npm.cmd` and `npx.cmd`, or use Command Prompt.
-- **Docker in WSL:** keep a WSL window open while you work, or WSL may shut down and stop the database. If the database can't be reached at `localhost:5432`, run `wsl hostname -I` and use that IP in `DATABASE_URL`.
+- **Docker in WSL:** keep a WSL window open while you work, or WSL may shut down and stop the database. The container restarts by itself the next time WSL starts. If the database can't be reached at `localhost:5432`, run `wsl hostname -I` and use that IP in `DATABASE_URL`.
 
 ### Environment variables
 
@@ -140,6 +181,13 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `PAYNOW_RESULT_URL` | Webhook URL Paynow calls with payment results |
 | `PAYNOW_RETURN_URL` | Where donors return after paying |
 | `CONFIRMATION_TOKEN_SECRET` | Signing secret for school confirmation links; use a long random value outside local development |
+| `NEXTAUTH_URL` | The app's public URL |
+| `NEXTAUTH_SECRET` | Signs session cookies |
+| `OTP_SECRET` | Protects stored sign-in codes and hashed IP addresses |
+| `DOCUMENT_STORAGE_DIR` | Private folder for uploaded documents; must not be served by the web server |
+| `DOCUMENT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes. Back it up: losing it makes stored documents unreadable |
+| `OTP_DELIVERY` | Set to `whatsapp` to send sign-in codes over WhatsApp |
+| `WHATSAPP_AUTH_DIR` | Folder for the linked WhatsApp session; keep it private |
 
 ### Scripts
 
@@ -152,6 +200,8 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `npm test` | Run the Vitest suite |
 | `npm run db:migrate` | Create and apply a migration in development |
 | `npm run db:studio` | Browse the database in Prisma Studio |
+| `npm run admin:create` | Create an admin, or promote an existing user |
+| `npm run whatsapp:pair` | Link the WhatsApp account that sends sign-in codes |
 
 ---
 
@@ -188,7 +238,7 @@ Found a security problem? Please report it privately to the maintainers rather t
 - [x] App skeleton and health check
 - [x] Database schema (identity, billing, payments, engagement)
 - [x] Bill status rules with tests
-- [ ] Student and guardian onboarding and verification
+- [x] Student and guardian onboarding and verification
 - [ ] School onboarding and contact verification
 - [ ] Bill submission and school confirmation flow
 - [ ] Public bill feed and bill detail pages
