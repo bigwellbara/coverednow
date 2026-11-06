@@ -19,6 +19,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <Link href="/admin/schools" className={linkClass}>
             Schools
           </Link>
+          <Link href="/admin/bills" className={linkClass}>
+            Bills
+          </Link>
         </div>
       </nav>
       {children}

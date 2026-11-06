@@ -79,9 +79,9 @@ function refuseUnlessLocal() {
   }
 
   // These numbers are made up, but may belong to real people.
-  if (process.env.OTP_DELIVERY === "whatsapp") {
+  if (process.env.MESSAGE_DELIVERY === "whatsapp") {
     fail(
-      'OTP_DELIVERY is "whatsapp", so signing in would message these made-up numbers. Clear it first.',
+      'MESSAGE_DELIVERY is "whatsapp", so signing in would message these made-up numbers. Clear it first.',
     );
   }
 }

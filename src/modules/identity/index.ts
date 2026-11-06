@@ -3,10 +3,12 @@
  * built on first use, so `next build` does not need runtime secrets.
  */
 import { requireEnv } from "@/lib/env";
-import { createEncryptedFileStore } from "./adapters/encrypted-file-store";
+import { createMessageSender } from "@/lib/messaging";
+import { getDocumentStore } from "@/lib/document-store";
 import { createOtpSender } from "./adapters/otp-sender";
 import { prismaAccountStore } from "./adapters/prisma-account-store";
 import { prismaOtpStore } from "./adapters/prisma-otp-store";
+import { prismaStudentDirectory } from "./adapters/prisma-student-directory";
 import { prismaVerificationStore } from "./adapters/prisma-verification-store";
 import {
   createAccountService,
@@ -25,7 +27,7 @@ let verificationService: VerificationService | undefined;
 export function getOtpService(): OtpService {
   return (otpService ??= createOtpService({
     store: prismaOtpStore,
-    sender: createOtpSender(),
+    sender: createOtpSender(createMessageSender()),
     secret: requireEnv("OTP_SECRET"),
   }));
 }
@@ -40,11 +42,12 @@ export function getAccountService(): AccountService {
 export function getVerificationService(): VerificationService {
   return (verificationService ??= createVerificationService({
     store: prismaVerificationStore,
-    files: createEncryptedFileStore({
-      directory: requireEnv("DOCUMENT_STORAGE_DIR"),
-      encryptionKey: Buffer.from(requireEnv("DOCUMENT_ENCRYPTION_KEY"), "base64"),
-    }),
+    files: getDocumentStore(),
   }));
+}
+
+export function getStudentDirectory() {
+  return prismaStudentDirectory;
 }
 
 export { OtpRecipientUnreachableError } from "./services/otp-service";

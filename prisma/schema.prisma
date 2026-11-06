@@ -203,9 +203,10 @@ model Bill {
   currency        String             @default("USD")
   category        BillCategory       @default(SCHOOL_FEES)
   dueDate         DateTime
-  documentUrl     String
+  documentKey     String
   documentHash    String
   status          BillStatus         @default(DRAFT)
+  closedReason    String?
   confirmations   BillConfirmation[]
   donations       Donation[]
   payout          Payout?
@@ -213,7 +214,10 @@ model Bill {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  @@unique([billerId, regNumber, term])
+  // Three more uniqueness rules live in the migrations as partial indexes, because
+  // Prisma cannot express them: while a bill is active, there is one per school,
+  // reg number and term, one per student and term, and one per fee statement. A
+  // rejected or withdrawn bill frees them, so a fake bill cannot block a real one.
   @@index([status])
   @@index([studentId])
 }
@@ -226,9 +230,11 @@ model BillConfirmation {
   contact         BillerContact      @relation(fields: [contactId], references: [id])
   status          ConfirmationStatus @default(PENDING)
   confirmedAmount Decimal?           @db.Decimal(12, 2)
-  token           String             @unique
+  sentAt          DateTime?
   expiresAt       DateTime
   respondedAt     DateTime?
+
+  @@index([billId])
 }
 
 // ---------------------------------------------------------------- payments

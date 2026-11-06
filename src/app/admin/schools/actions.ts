@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { FormActionState as SchoolFormState } from "@/components/use-form-action";
 import { BILLER_ERROR_MESSAGES, getBillerService } from "@/modules/billing";
 import {
   billerDetailsSchema,
@@ -11,8 +12,6 @@ import {
 } from "@/modules/billing/domain/biller";
 import type { BillerResult } from "@/modules/billing/services/biller-service";
 import { requireAdmin } from "@/modules/identity/adapters/session";
-
-export type SchoolFormState = { error?: string; success?: string };
 
 const idSchema = z.string().min(1);
 
