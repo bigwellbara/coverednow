@@ -1,7 +1,6 @@
 import { ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
 import { getVerificationService } from "@/modules/identity";
 import { requireAdmin } from "@/modules/identity/adapters/session";
 import { DOCUMENT_KIND_LABELS } from "@/modules/identity/domain/verification";
@@ -12,7 +11,7 @@ export default async function VerificationReviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const admin = await requireAdmin();
+  await requireAdmin();
   const { id } = await params;
   const item = await getVerificationService().findForReview(id);
   if (!item) notFound();
@@ -21,7 +20,6 @@ export default async function VerificationReviewPage({
 
   return (
     <>
-      <AppHeader name={admin.name} />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <Link
           href="/admin/verifications"

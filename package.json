@@ -11,6 +11,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "db:seed-test": "tsx --env-file=.env scripts/seed-test-accounts.ts",
     "admin:create": "node --env-file=.env scripts/create-admin.mjs",
     "whatsapp:pair": "node --env-file=.env scripts/whatsapp-pair.mjs"
   },
@@ -31,6 +32,7 @@
     "@types/react-dom": "^19.0.0",
     "prisma": "^6.0.0",
     "tailwindcss": "^4.3.4",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

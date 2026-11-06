@@ -1,16 +1,14 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 import { getVerificationService } from "@/modules/identity";
 import { requireAdmin } from "@/modules/identity/adapters/session";
 
 export default async function VerificationQueuePage() {
-  const admin = await requireAdmin();
+  await requireAdmin();
   const queue = await getVerificationService().listAwaitingReview();
 
   return (
     <>
-      <AppHeader name={admin.name} />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <h1 className="text-2xl font-bold">Verification queue</h1>
         {queue.length === 0 ? (
