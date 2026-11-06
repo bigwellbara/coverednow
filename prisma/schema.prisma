@@ -60,6 +60,13 @@ enum ConfirmationStatus {
   RECEIPT
 }
 
+enum VerificationDocumentKind {
+  NATIONAL_ID
+  BIRTH_CERTIFICATE
+  STUDENT_ID
+  ENROLLMENT_LETTER
+}
+
 enum DonationStatus {
   INITIATED
   SETTLED
@@ -84,17 +91,67 @@ model User {
   createdAt    DateTime      @default(now())
   verification Verification?
   donorProfile DonorProfile?
+  students     Student[]
+}
+
+// The person whose fees are being paid. A university student owns their own
+// record; a guardian owns the record of the high school student in their care.
+model Student {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  firstName String
+  lastName  String
+  level     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  ipHash     String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([ipHash, createdAt])
 }
 
 model Verification {
-  id         String             @id @default(cuid())
-  userId     String             @unique
-  user       User               @relation(fields: [userId], references: [id])
-  status     VerificationStatus @default(PENDING)
-  idDocUrl   String
-  reviewedBy String?
-  reviewedAt DateTime?
-  createdAt  DateTime           @default(now())
+  id              String                 @id @default(cuid())
+  userId          String                 @unique
+  user            User                   @relation(fields: [userId], references: [id])
+  status          VerificationStatus     @default(PENDING)
+  // Null while the owner is still preparing it, or after a rejection.
+  submittedAt     DateTime?
+  rejectionReason String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  documents       VerificationDocument[]
+
+  @@index([status, submittedAt])
+}
+
+model VerificationDocument {
+  id             String                   @id @default(cuid())
+  verificationId String
+  verification   Verification             @relation(fields: [verificationId], references: [id])
+  kind           VerificationDocumentKind
+  storageKey     String                   @unique
+  mimeType       String
+  sizeBytes      Int
+  // Hash of the original file. Unique so one document cannot back two accounts.
+  sha256         String                   @unique
+  createdAt      DateTime                 @default(now())
+
+  @@unique([verificationId, kind])
 }
 
 // ----------------------------------------------------------------- billing
@@ -127,6 +184,7 @@ model BillerContact {
 model Bill {
   id              String             @id @default(cuid())
   ownerId         String
+  studentId       String
   billerId        String
   biller          Biller             @relation(fields: [billerId], references: [id])
   regNumber       String
@@ -148,6 +206,7 @@ model Bill {
 
   @@unique([billerId, regNumber, term])
   @@index([status])
+  @@index([studentId])
 }
 
 model BillConfirmation {
