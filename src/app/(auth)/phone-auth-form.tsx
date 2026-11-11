@@ -4,12 +4,14 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
+import { AddressField, type AddressMethod } from "@/components/address-field";
 import { requestOtpAction } from "./actions";
 
 const SIGN_IN_ERRORS: Record<string, string> = {
   INVALID_CODE: "That code is wrong or has expired. Check it, or send a new one.",
   INVALID_DETAILS: "Please check your details and try again.",
-  NO_ACCOUNT: "There's no account for this number yet. Please sign up first.",
+  NO_ACCOUNT:
+    "There's no account for this address yet. Please sign up first, or use the other way you signed up.",
 };
 
 export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
@@ -19,28 +21,32 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
 
   const [step, setStep] = useState<"details" | "code">("details");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [role, setRole] = useState("STUDENT");
-  const [phone, setPhone] = useState("");
+  const [method, setMethod] = useState<AddressMethod>("WHATSAPP");
+  const [address, setAddress] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const signUp = isSignUp ? { name, email, role } : undefined;
+  const signUp = isSignUp ? { name, role } : undefined;
 
   const sendCode = () =>
     startTransition(async () => {
       setError(null);
       setNotice(null);
-      const result = await requestOtpAction({ phone, signUp });
+      const result = await requestOtpAction({ address, signUp });
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      setPhone(result.phone);
+      setAddress(result.address);
       setCode("");
       setStep("code");
-      setNotice(`We sent a 6-digit code to ${result.phone} on WhatsApp.`);
+      setNotice(
+        result.address.includes("@")
+          ? `We emailed a 6-digit code to ${result.address}. If you can't see it, check your spam folder.`
+          : `We sent a 6-digit code to ${result.address} on WhatsApp.`,
+      );
     });
 
   const verifyCode = () =>
@@ -48,7 +54,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
       setError(null);
       const result = await signIn("phone-otp", {
         redirect: false,
-        phone,
+        address,
         code,
         ...signUp,
       });
@@ -117,36 +123,18 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
                   className="field-input"
                 />
               </div>
-              <div>
-                <label htmlFor="email" className="field-label">
-                  Email address (optional)
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="field-input"
-                />
-              </div>
             </>
           )}
-          <div>
-            <label htmlFor="phone" className="field-label">
-              WhatsApp number
-            </label>
-            <input
-              id="phone"
-              type="tel"
-              required
-              autoComplete="tel"
-              placeholder="077 123 4567"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              className="field-input"
-            />
-          </div>
+          <AddressField
+            method={method}
+            onMethodChange={(next) => {
+              setMethod(next);
+              setAddress("");
+              setError(null);
+            }}
+            address={address}
+            onAddressChange={setAddress}
+          />
         </>
       ) : (
         <div>
@@ -180,7 +168,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
       </button>
 
       {step === "code" && (
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between gap-3 text-sm">
           <button
             type="button"
             className="min-h-11 font-medium text-emerald-800 underline"
@@ -190,7 +178,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
               setStep("details");
             }}
           >
-            Change number
+            Change address
           </button>
           <button
             type="button"

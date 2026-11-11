@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { DocumentFiles } from "../../../lib/encrypted-file-store";
 import type { StudentDetails } from "../domain/account";
 import {
   MAX_DOCUMENT_BYTES,
@@ -7,7 +8,6 @@ import {
 import {
   createVerificationService,
   type Applicant,
-  type DocumentFiles,
   type VerificationRecord,
   type VerificationStore,
 } from "./verification-service";
@@ -41,6 +41,7 @@ function setup() {
     ...v,
     applicantName: "Applicant",
     applicantPhone: "+263771234567",
+    applicantEmail: null,
     applicantRole: "STUDENT",
     student: students.get(v.userId) ?? null,
   });

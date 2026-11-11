@@ -9,8 +9,8 @@ import type {
 const RECENT_MESSAGE_TTL_MS = 5 * 60_000;
 
 /**
- * Baileys' lower log levels include message contents, which here means sign-in
- * codes. Only error text goes to the console, and never the attached objects.
+ * Baileys' lower log levels include message contents, such as sign-in codes and
+ * confirmation links. Only error text goes to the console, and never the attached objects.
  */
 const logger: ILogger = {
   level: "error",

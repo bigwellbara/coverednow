@@ -12,7 +12,13 @@ import type { DocumentKind } from "@/modules/identity/domain/verification";
 type Role = "ADMIN" | "STUDENT" | "GUARDIAN";
 type Stage = "new" | "in-review" | "sent-back" | "verified";
 
-type TestAccount = { phone: string; name: string; role: Role; stage?: Stage };
+type TestAccount = {
+  phone?: string;
+  email?: string;
+  name: string;
+  role: Role;
+  stage?: Stage;
+};
 
 const ADMIN: TestAccount = {
   phone: "+263771000001",
@@ -27,6 +33,8 @@ const APPLICANTS: TestAccount[] = [
   { phone: "+263771000005", name: "Test Student SentBack", role: "STUDENT", stage: "sent-back" },
   { phone: "+263771000006", name: "Test Student Verified", role: "STUDENT", stage: "verified" },
   { phone: "+263771000007", name: "Test Guardian Verified", role: "GUARDIAN", stage: "verified" },
+  // example.com is reserved for testing, so this can never reach a real person.
+  { email: "test.student@example.com", name: "Test Student Email", role: "STUDENT", stage: "verified" },
 ];
 
 const SCHOOLS: Array<{
@@ -79,9 +87,9 @@ function refuseUnlessLocal() {
   }
 
   // These numbers are made up, but may belong to real people.
-  if (process.env.OTP_DELIVERY === "whatsapp") {
+  if (process.env.MESSAGE_DELIVERY === "whatsapp") {
     fail(
-      'OTP_DELIVERY is "whatsapp", so signing in would message these made-up numbers. Clear it first.',
+      'MESSAGE_DELIVERY is "whatsapp", so signing in would message these made-up numbers. Clear it first.',
     );
   }
 }
@@ -113,10 +121,12 @@ function samplePdf(label: string): Uint8Array {
   return new TextEncoder().encode(pdf);
 }
 
-async function ensureUser({ phone, name, role }: TestAccount) {
-  const existing = await db.user.findUnique({ where: { phone } });
+async function ensureUser({ phone, email, name, role }: TestAccount) {
+  const existing = await db.user.findFirst({
+    where: phone ? { phone } : { email: email! },
+  });
   if (existing) return { user: existing, created: false };
-  const user = await db.user.create({ data: { phone, name, role } });
+  const user = await db.user.create({ data: { phone, email, name, role } });
   return { user, created: true };
 }
 
@@ -208,13 +218,15 @@ async function main() {
 
   // Clears rate limits, so heavy testing can carry on after a re-run.
   await db.otpChallenge.deleteMany({
-    where: { phone: { in: [ADMIN, ...APPLICANTS].map((a) => a.phone) } },
+    where: {
+      address: { in: [ADMIN, ...APPLICANTS].map((a) => (a.phone ?? a.email)!) },
+    },
   });
 
   console.log("\nTest accounts (sign-in codes print in the npm run dev terminal):\n");
-  for (const { phone, name, stage } of [ADMIN, ...APPLICANTS]) {
-    const local = phone.replace("+263", "0");
-    console.log(`  ${local}  ${name}${stage ? ` (${stage})` : ""}`);
+  for (const { phone, email, name, stage } of [ADMIN, ...APPLICANTS]) {
+    const address = phone?.replace("+263", "0") ?? email;
+    console.log(`  ${address}  ${name}${stage ? ` (${stage})` : ""}`);
   }
   console.log("\nSchools:\n");
   for (const { details, verified } of SCHOOLS) {

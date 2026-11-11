@@ -9,7 +9,7 @@ export default async function SignInPage() {
     <main className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-2xl font-bold">Sign in</h1>
       <p className="mt-1 mb-6 text-slate-600">
-        We&apos;ll send a code to your WhatsApp number.
+        We&apos;ll send you a code by WhatsApp or email.
       </p>
       <PhoneAuthForm mode="sign-in" />
     </main>

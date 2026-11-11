@@ -1,75 +1,70 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { createOtpSender, createWhatsAppOtpSender } from "./otp-sender";
+import { describe, expect, it, vi } from "vitest";
+import { RecipientNotOnWhatsAppError } from "../../../lib/messaging/whatsapp-client";
+import { OtpRecipientUnreachableError } from "../services/otp-service";
+import { createOtpSender } from "./otp-sender";
+
+vi.mock("@/lib/messaging", async () =>
+  import("../../../lib/messaging/whatsapp-client"),
+);
 
 const PHONE = "+263771234567";
+const EMAIL = "tariro@example.com";
 
-describe("createWhatsAppOtpSender", () => {
-  it("sends the code to the number, in a plain message with no links", async () => {
-    const sendText = vi.fn(async () => {});
+function setup(sendText: (phone: string, text: string) => Promise<void> = async () => {}) {
+  const whatsApp = vi.fn(sendText);
+  const email = vi.fn(async () => {});
+  return {
+    sender: createOtpSender({ sendText: whatsApp }, { send: email }),
+    whatsApp,
+    email,
+  };
+}
 
-    await createWhatsAppOtpSender({ sendText }).send(PHONE, "123456");
+describe("createOtpSender", () => {
+  it("sends a phone's code over WhatsApp, plain with no links", async () => {
+    const { sender, whatsApp, email } = setup();
 
-    expect(sendText).toHaveBeenCalledTimes(1);
-    const [phone, message] = sendText.mock.calls[0] as unknown as [string, string];
+    await sender.send(PHONE, "123456");
+
+    expect(email).not.toHaveBeenCalled();
+    const [phone, message] = whatsApp.mock.calls[0]!;
     expect(phone).toBe(PHONE);
     expect(message).toContain("123456");
     expect(message).not.toMatch(/https?:|www\./);
   });
 
-  it("passes on delivery failures, so the form can report them", async () => {
+  it("sends an email address's code by email, with it out of the subject", async () => {
+    const { sender, whatsApp, email } = setup();
+
+    await sender.send(EMAIL, "123456");
+
+    expect(whatsApp).not.toHaveBeenCalled();
+    const [message] = email.mock.calls[0] as unknown as [
+      { to: string; subject: string; text: string },
+    ];
+    expect(message.to).toBe(EMAIL);
+    expect(message.text).toContain("123456");
+    // Subjects show on locked phones and in notification previews.
+    expect(message.subject).not.toContain("123456");
+    expect(message.text).not.toMatch(/https?:|www\./);
+  });
+
+  it("reports a number that cannot receive codes", async () => {
+    const { sender } = setup(async () => {
+      throw new RecipientNotOnWhatsAppError();
+    });
+
+    await expect(sender.send(PHONE, "123456")).rejects.toBeInstanceOf(
+      OtpRecipientUnreachableError,
+    );
+  });
+
+  it("passes on other delivery failures", async () => {
     const failure = new Error("not connected");
-    const sender = createWhatsAppOtpSender({
-      sendText: async () => {
-        throw failure;
-      },
+    const { sender } = setup(async () => {
+      throw failure;
     });
 
     await expect(sender.send(PHONE, "123456")).rejects.toBe(failure);
-  });
-});
-
-describe("createOtpSender", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("refuses to send in production with no delivery set", async () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-
-    await expect(
-      createOtpSender({ NODE_ENV: "production" }).send(PHONE, "123456"),
-    ).rejects.toThrow("No OTP delivery");
-    expect(info).not.toHaveBeenCalled();
-  });
-
-  it("never treats an unknown delivery setting as console output in production", async () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const sender = createOtpSender({
-      NODE_ENV: "production",
-      OTP_DELIVERY: "console",
-    });
-
-    await expect(sender.send(PHONE, "123456")).rejects.toThrow();
-    expect(info).not.toHaveBeenCalled();
-  });
-
-  it("prints the code to the console in development", async () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-
-    await createOtpSender({ NODE_ENV: "development" }).send(PHONE, "123456");
-
-    expect(info.mock.calls[0]?.[0]).toContain("123456");
-  });
-
-  it("does not print the code when WhatsApp delivery is on", () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-
-    const sender = createOtpSender({
-      NODE_ENV: "development",
-      OTP_DELIVERY: "whatsapp",
-    });
-
-    expect(sender).toBeDefined();
-    expect(info).not.toHaveBeenCalled();
   });
 });

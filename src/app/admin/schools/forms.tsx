@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  startTransition,
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useState } from "react";
+import { FormFeedback } from "@/components/form-feedback";
+import { useFormAction } from "@/components/use-form-action";
 import {
   BILLER_TYPES,
   BILLER_TYPE_LABELS,
@@ -24,46 +19,7 @@ import {
   setSchoolVerifiedAction,
   updateSchoolAction,
   verifyContactAction,
-  type SchoolFormState,
 } from "./actions";
-
-type SchoolAction = (
-  previous: SchoolFormState,
-  formData: FormData,
-) => Promise<SchoolFormState>;
-
-/**
- * React clears a form after every `action`, including a failed one, which would
- * wipe everything typed because of one mistake. This keeps the values on an
- * error, and clears the form after a save only when asked to.
- */
-function useSchoolForm(action: SchoolAction, clearOnSuccess = false) {
-  const [state, dispatch, isPending] = useActionState(action, {});
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (clearOnSuccess && state.success) formRef.current?.reset();
-  }, [state, clearOnSuccess]);
-
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    startTransition(() => dispatch(formData));
-  };
-
-  return { state, isPending, formRef, onSubmit };
-}
-
-function Feedback({ state }: { state: SchoolFormState }) {
-  if (state.error) {
-    return (
-      <p role="alert" className="form-error">
-        {state.error}
-      </p>
-    );
-  }
-  return state.success ? <p className="form-success">{state.success}</p> : null;
-}
 
 function Field(props: {
   id: string;
@@ -100,7 +56,7 @@ export function SchoolDetailsForm({
   schoolId?: string;
   defaults?: BillerDetails;
 }) {
-  const { state, isPending, formRef, onSubmit } = useSchoolForm(
+  const { state, isPending, formRef, onSubmit } = useFormAction(
     schoolId ? updateSchoolAction : createSchoolAction,
   );
 
@@ -138,7 +94,7 @@ export function SchoolDetailsForm({
           defaultValue={defaults?.city}
         />
       </div>
-      <Feedback state={state} />
+      <FormFeedback state={state} />
       <button type="submit" disabled={isPending} className="btn-primary">
         {schoolId ? "Save details" : "Create school"}
       </button>
@@ -147,7 +103,7 @@ export function SchoolDetailsForm({
 }
 
 export function AddContactForm({ schoolId }: { schoolId: string }) {
-  const { state, isPending, formRef, onSubmit } = useSchoolForm(
+  const { state, isPending, formRef, onSubmit } = useFormAction(
     addContactAction,
     true,
   );
@@ -179,7 +135,7 @@ export function AddContactForm({ schoolId }: { schoolId: string }) {
           required={false}
         />
       </div>
-      <Feedback state={state} />
+      <FormFeedback state={state} />
       <button type="submit" disabled={isPending} className="btn-secondary">
         Add contact
       </button>
@@ -192,7 +148,7 @@ export function VerifyContactForm(props: {
   contactId: string;
 }) {
   const { state, isPending, formRef, onSubmit } =
-    useSchoolForm(verifyContactAction);
+    useFormAction(verifyContactAction);
   const noteId = `note-${props.contactId}`;
 
   return (
@@ -213,7 +169,7 @@ export function VerifyContactForm(props: {
           className="field-input"
         />
       </div>
-      <Feedback state={state} />
+      <FormFeedback state={state} />
       <button type="submit" disabled={isPending} className="btn-secondary">
         Mark as verified
       </button>
@@ -226,13 +182,13 @@ export function RemoveContactForm(props: {
   contactId: string;
 }) {
   const { state, isPending, formRef, onSubmit } =
-    useSchoolForm(removeContactAction);
+    useFormAction(removeContactAction);
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="space-y-2">
       <input type="hidden" name="schoolId" value={props.schoolId} />
       <input type="hidden" name="contactId" value={props.contactId} />
-      <Feedback state={state} />
+      <FormFeedback state={state} />
       <button
         type="submit"
         disabled={isPending}
@@ -251,7 +207,7 @@ export function PayoutForm({
   schoolId: string;
   replacing: boolean;
 }) {
-  const { state, isPending, formRef, onSubmit } = useSchoolForm(
+  const { state, isPending, formRef, onSubmit } = useFormAction(
     savePayoutAction,
     true,
   );
@@ -326,7 +282,7 @@ export function PayoutForm({
           verified status until you check it again.
         </p>
       )}
-      <Feedback state={state} />
+      <FormFeedback state={state} />
       <button type="submit" disabled={isPending} className="btn-secondary">
         Save payout details
       </button>
@@ -341,7 +297,7 @@ export function SchoolVerificationForm({
   schoolId: string;
   verified: boolean;
 }) {
-  const { state, isPending, formRef, onSubmit } = useSchoolForm(
+  const { state, isPending, formRef, onSubmit } = useFormAction(
     setSchoolVerifiedAction,
   );
 
@@ -349,7 +305,7 @@ export function SchoolVerificationForm({
     <form ref={formRef} onSubmit={onSubmit} className="space-y-2">
       <input type="hidden" name="schoolId" value={schoolId} />
       <input type="hidden" name="verified" value={String(!verified)} />
-      <Feedback state={state} />
+      <FormFeedback state={state} />
       <button
         type="submit"
         disabled={isPending}

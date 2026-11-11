@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { OtpRecipientUnreachableError } from "../services/otp-service";
 import {
+  RecipientNotOnWhatsAppError,
   WhatsAppUnavailableError,
   createWhatsAppClient,
   type WhatsAppConnectionUpdate,
@@ -95,7 +95,7 @@ describe("WhatsApp client", () => {
     sockets[0]!.socket.lookup.mockResolvedValueOnce({ jid: JID, exists: false });
     sockets[0]!.emit({ state: "open" });
 
-    await expect(sending).rejects.toBeInstanceOf(OtpRecipientUnreachableError);
+    await expect(sending).rejects.toBeInstanceOf(RecipientNotOnWhatsAppError);
     expect(sockets[0]!.sent).toEqual([]);
   });
 
@@ -107,7 +107,7 @@ describe("WhatsApp client", () => {
     sockets[0]!.socket.lookup.mockResolvedValueOnce(undefined);
     sockets[0]!.emit({ state: "open" });
 
-    await expect(sending).rejects.toBeInstanceOf(OtpRecipientUnreachableError);
+    await expect(sending).rejects.toBeInstanceOf(RecipientNotOnWhatsAppError);
   });
 
   it("gives up waiting if the connection never opens", async () => {

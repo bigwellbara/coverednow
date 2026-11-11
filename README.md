@@ -6,7 +6,7 @@ CoveredNow lets verified students (or their guardians) list school-confirmed fee
 
 CoveredNow is a product of [FirmwareNerds](https://github.com/bigwellbara/coverednow). Launch market: Zimbabwe, starting with universities, colleges and high schools.
 
-> **Status: early development.** Sign-up, identity verification, the admin review queue and school management are in place. The core flows (school confirmation, donations, payouts) are being built next. See the [Roadmap](#roadmap).
+> **Status: early development.** Sign-up, identity verification, school management, bill submission and school confirmation are in place. Donations and payouts are being built next. See the [Roadmap](#roadmap).
 
 ---
 
@@ -45,8 +45,9 @@ Side exits: `REJECTED`, `EXPIRED`, `CANCELLED`, `DISPUTED`.
 | ORM | Prisma |
 | Validation | Zod |
 | Styling | Tailwind CSS |
-| Auth | NextAuth v4, phone number and one-time code |
-| WhatsApp | Baileys (unofficial client), for sign-in codes |
+| Auth | NextAuth v4, one-time codes by WhatsApp or email |
+| WhatsApp | Baileys (unofficial client), for sign-in codes and bursar links |
+| Email | Nodemailer, through any SMTP provider |
 | Icons | Lucide |
 | Tests | Vitest |
 | Local database | Docker Compose |
@@ -137,7 +138,7 @@ Open <http://localhost:3000>. The health check is at <http://localhost:3000/api/
 
 ### Signing in during development
 
-By default, sign-in codes are printed in the terminal running `npm run dev`, so you don't need WhatsApp to work on the app. A production build refuses to send codes unless WhatsApp is set up.
+By default, sign-in codes and bursar confirmation links are printed in the terminal running `npm run dev`, so you don't need WhatsApp to work on the app. A production build refuses to send them unless WhatsApp is set up.
 
 For ready-made test accounts and schools, run:
 
@@ -154,20 +155,21 @@ npm run db:seed-test
 | `0771000005` | Student whose application was sent back |
 | `0771000006` | Verified student |
 | `0771000007` | Verified guardian |
+| `test.student@example.com` | Verified student who signs in by email |
 
 The script only runs against a local database and with WhatsApp delivery off, because these numbers are made up and may belong to real people. Running it again leaves existing data alone and clears the code limits for these numbers, which helps if you see "Too many codes requested".
 
 To make your own admin instead, run `npm run admin:create -- +263771234567 "Your Name"`. Admins manage schools at `/admin/schools` and review applications at `/admin/verifications`.
 
-### Sending codes over WhatsApp
+### Sending messages over WhatsApp
 
-Codes are sent through [Baileys](https://github.com/WhiskeySockets/Baileys), which connects as a linked device on an ordinary WhatsApp account.
+Sign-in codes and bursar confirmation links are sent through [Baileys](https://github.com/WhiskeySockets/Baileys), which connects as a linked device on an ordinary WhatsApp account.
 
 ```bash
 # 1. Stop the app, then link the account that will send codes
 npm run whatsapp:pair -- 263771234567
 
-# 2. In .env, set OTP_DELIVERY="whatsapp", then start the app again
+# 2. In .env, set MESSAGE_DELIVERY="whatsapp", then start the app again
 npm run dev
 ```
 
@@ -177,6 +179,20 @@ Things to know:
 - **It needs a long-running server and exactly one running instance.** It holds a live connection, so it won't work on serverless hosting such as Vercel, and two instances would knock each other off.
 - **Keep `WHATSAPP_AUTH_DIR` private and backed up.** It is stored unencrypted and gives access to the linked account. Losing it means linking again.
 - If the link is lost, the logs say so and sending fails until you run the pairing script again. Restarting the app isn't needed.
+
+### Sending sign-in codes by email
+
+People can sign up and sign in with an email address instead of WhatsApp. Without SMTP settings, email codes are printed in the terminal like everything else. To send real email, set these in `.env` using the details from any email provider, then restart the app:
+
+```bash
+SMTP_HOST="smtp.example.com"
+SMTP_PORT="587"
+SMTP_USER="your-login"
+SMTP_PASSWORD="your-password"
+EMAIL_FROM="CoveredNow <no-reply@your-domain.com>"
+```
+
+An email or phone is only ever stored after a code sent to it has been entered, so nobody can claim an address that isn't theirs. Anyone can add the sign-in method they're missing at `/account`. A method that's already set can't be replaced, so a stolen session can't lock out the real owner.
 
 ### Windows notes
 
@@ -201,7 +217,9 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `DOCUMENT_STORAGE_DIR` | Private folder for uploaded documents; must not be served by the web server |
 | `DOCUMENT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes. Back it up: losing it makes stored documents unreadable |
 | `PAYOUT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes, for school payout details. Back it up: losing it means re-entering them |
-| `OTP_DELIVERY` | Set to `whatsapp` to send sign-in codes over WhatsApp |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Your email provider's SMTP details, for email sign-in codes |
+| `EMAIL_FROM` | The address those emails come from |
+| `MESSAGE_DELIVERY` | Set to `whatsapp` to send sign-in codes and bursar links over WhatsApp |
 | `WHATSAPP_AUTH_DIR` | Folder for the linked WhatsApp session; keep it private |
 
 ### Scripts
@@ -256,7 +274,7 @@ Found a security problem? Please report it privately to the maintainers rather t
 - [x] Bill status rules with tests
 - [x] Student and guardian onboarding and verification
 - [x] School onboarding and contact verification
-- [ ] Bill submission and school confirmation flow
+- [x] Bill submission and school confirmation flow
 - [ ] Public bill feed and bill detail pages
 - [ ] Paynow checkout, webhooks and ledger
 - [ ] Manual payout recording with proof of payment
