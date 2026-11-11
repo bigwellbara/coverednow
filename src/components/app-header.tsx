@@ -13,7 +13,12 @@ export function AppHeader({ name }: { name: string }) {
           CoveredNow
         </Link>
         <div className="flex min-w-0 items-center gap-3 text-sm">
-          <span className="truncate text-slate-600">{name}</span>
+          <Link
+            href="/account"
+            className="inline-flex min-h-11 min-w-0 items-center text-slate-600 underline-offset-2 hover:underline"
+          >
+            <span className="truncate">{name}</span>
+          </Link>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/" })}

@@ -41,6 +41,7 @@ function setup() {
     ...v,
     applicantName: "Applicant",
     applicantPhone: "+263771234567",
+    applicantEmail: null,
     applicantRole: "STUDENT",
     student: students.get(v.userId) ?? null,
   });

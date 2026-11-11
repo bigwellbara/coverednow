@@ -3,13 +3,14 @@ import { OTP_POLICY } from "../domain/otp";
 import { createOtpService, type OtpStore } from "./otp-service";
 
 const PHONE = "+263771234567";
+const EMAIL = "tariro@example.com";
 const OTHER_PHONE = "+263781234567";
 const IP = "203.0.113.5";
 const START = new Date("2027-01-01T08:00:00Z");
 
 type Row = {
   id: string;
-  phone: string;
+  address: string;
   codeHash: string;
   ipHash: string;
   attempts: number;
@@ -21,11 +22,11 @@ type Row = {
 function setup() {
   let clock = START;
   const rows: Row[] = [];
-  const sent: Array<{ phone: string; code: string }> = [];
+  const sent: Array<{ address: string; code: string }> = [];
 
   const store: OtpStore = {
-    countForPhoneSince: async (phone, since) =>
-      rows.filter((r) => r.phone === phone && r.createdAt >= since).length,
+    countForAddressSince: async (address, since) =>
+      rows.filter((r) => r.address === address && r.createdAt >= since).length,
     countForIpSince: async (ipHash, since) =>
       rows.filter((r) => r.ipHash === ipHash && r.createdAt >= since).length,
     create: async (input) => {
@@ -37,9 +38,9 @@ function setup() {
         createdAt: clock,
       });
     },
-    findLatestActive: async (phone, now) =>
+    findLatestActive: async (address, now) =>
       rows
-        .filter((r) => r.phone === phone && !r.consumedAt && r.expiresAt > now)
+        .filter((r) => r.address === address && !r.consumedAt && r.expiresAt > now)
         .at(-1) ?? null,
     claimAttempt: async (id, max) => {
       const row = rows.find((r) => r.id === id);
@@ -60,8 +61,8 @@ function setup() {
     secret: "test-secret",
     now: () => clock,
     sender: {
-      send: async (phone, code) => {
-        sent.push({ phone, code });
+      send: async (address, code) => {
+        sent.push({ address, code });
       },
     },
   });
@@ -106,7 +107,7 @@ describe("otp service", () => {
     expect(await t.service.verify(PHONE, t.lastCode())).toBe(true);
   });
 
-  it("rejects a code issued for another phone", async () => {
+  it("rejects a code issued for another address", async () => {
     await t.service.request(PHONE, IP);
     const code = t.lastCode();
     await t.service.request(OTHER_PHONE, IP);
@@ -143,29 +144,39 @@ describe("otp service", () => {
     expect(await t.service.verify(PHONE, second)).toBe(true);
   });
 
-  it("limits requests per phone, then recovers", async () => {
-    for (let i = 0; i < OTP_POLICY.maxPerPhone; i += 1) {
+  it("limits requests per address, then recovers", async () => {
+    for (let i = 0; i < OTP_POLICY.maxPerAddress; i += 1) {
       expect(await t.service.request(PHONE, IP)).toEqual({ ok: true });
     }
     expect(await t.service.request(PHONE, "203.0.113.6")).toEqual({
       ok: false,
       reason: "RATE_LIMITED",
     });
-    expect(t.sent).toHaveLength(OTP_POLICY.maxPerPhone);
+    expect(t.sent).toHaveLength(OTP_POLICY.maxPerAddress);
 
-    t.advance(OTP_POLICY.phoneWindowMs + 1);
+    t.advance(OTP_POLICY.addressWindowMs + 1);
     expect(await t.service.request(PHONE, IP)).toEqual({ ok: true });
   });
 
   it("limits requests per address across many phones", async () => {
     for (let i = 0; i < OTP_POLICY.maxPerIp; i += 1) {
-      const phone = `+26377100000${i}`;
-      expect(await t.service.request(phone, IP)).toEqual({ ok: true });
+      const address = `+26377100000${i}`;
+      expect(await t.service.request(address, IP)).toEqual({ ok: true });
     }
     expect(await t.service.request(PHONE, IP)).toEqual({
       ok: false,
       reason: "RATE_LIMITED",
     });
+  });
+
+  it("treats an email address like any other, with its own limit and codes", async () => {
+    for (let i = 0; i < OTP_POLICY.maxPerAddress; i += 1) {
+      await t.service.request(PHONE, IP);
+    }
+
+    expect(await t.service.request(EMAIL, IP)).toEqual({ ok: true });
+    expect(t.lastCode()).toMatch(/^\d{6}$/);
+    expect(await t.service.verify(EMAIL, t.lastCode())).toBe(true);
   });
 
   it("returns false with no code sent", async () => {

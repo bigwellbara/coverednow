@@ -21,18 +21,17 @@ export const authOptions: NextAuthOptions = {
       id: "phone-otp",
       name: "Phone",
       credentials: {
-        phone: { type: "text" },
+        address: { type: "text" },
         code: { type: "text" },
         name: { type: "text" },
-        email: { type: "text" },
         role: { type: "text" },
       },
       async authorize(credentials) {
-        const { phone = "", code = "", name, email, role } = credentials ?? {};
+        const { address = "", code = "", name, role } = credentials ?? {};
         const result = await getAccountService().signIn({
-          phone,
+          address,
           code,
-          signUp: role === undefined ? undefined : { name, email, role },
+          signUp: role === undefined ? undefined : { name, role },
         });
         // NextAuth hands this message back to the sign-in form as the error code.
         if (!result.ok) throw new Error(result.error);
@@ -45,7 +44,8 @@ export const authOptions: NextAuthOptions = {
 export type CurrentUser = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
+  email: string | null;
   role: string;
 };
 
@@ -59,7 +59,7 @@ export async function currentUser(): Promise<CurrentUser | null> {
   if (!id) return null;
   return db.user.findUnique({
     where: { id },
-    select: { id: true, name: true, phone: true, role: true },
+    select: { id: true, name: true, phone: true, email: true, role: true },
   });
 }
 

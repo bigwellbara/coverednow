@@ -4,6 +4,7 @@
  */
 import { requireEnv } from "@/lib/env";
 import { createMessageSender } from "@/lib/messaging";
+import { createEmailSender } from "@/lib/messaging/email";
 import { getDocumentStore } from "@/lib/document-store";
 import { createOtpSender } from "./adapters/otp-sender";
 import { prismaAccountStore } from "./adapters/prisma-account-store";
@@ -27,7 +28,7 @@ let verificationService: VerificationService | undefined;
 export function getOtpService(): OtpService {
   return (otpService ??= createOtpService({
     store: prismaOtpStore,
-    sender: createOtpSender(createMessageSender()),
+    sender: createOtpSender(createMessageSender(), createEmailSender()),
     secret: requireEnv("OTP_SECRET"),
   }));
 }

@@ -45,8 +45,9 @@ Side exits: `REJECTED`, `EXPIRED`, `CANCELLED`, `DISPUTED`.
 | ORM | Prisma |
 | Validation | Zod |
 | Styling | Tailwind CSS |
-| Auth | NextAuth v4, phone number and one-time code |
-| WhatsApp | Baileys (unofficial client), for sign-in codes |
+| Auth | NextAuth v4, one-time codes by WhatsApp or email |
+| WhatsApp | Baileys (unofficial client), for sign-in codes and bursar links |
+| Email | Nodemailer, through any SMTP provider |
 | Icons | Lucide |
 | Tests | Vitest |
 | Local database | Docker Compose |
@@ -154,6 +155,7 @@ npm run db:seed-test
 | `0771000005` | Student whose application was sent back |
 | `0771000006` | Verified student |
 | `0771000007` | Verified guardian |
+| `test.student@example.com` | Verified student who signs in by email |
 
 The script only runs against a local database and with WhatsApp delivery off, because these numbers are made up and may belong to real people. Running it again leaves existing data alone and clears the code limits for these numbers, which helps if you see "Too many codes requested".
 
@@ -178,6 +180,20 @@ Things to know:
 - **Keep `WHATSAPP_AUTH_DIR` private and backed up.** It is stored unencrypted and gives access to the linked account. Losing it means linking again.
 - If the link is lost, the logs say so and sending fails until you run the pairing script again. Restarting the app isn't needed.
 
+### Sending sign-in codes by email
+
+People can sign up and sign in with an email address instead of WhatsApp. Without SMTP settings, email codes are printed in the terminal like everything else. To send real email, set these in `.env` using the details from any email provider, then restart the app:
+
+```bash
+SMTP_HOST="smtp.example.com"
+SMTP_PORT="587"
+SMTP_USER="your-login"
+SMTP_PASSWORD="your-password"
+EMAIL_FROM="CoveredNow <no-reply@your-domain.com>"
+```
+
+An email or phone is only ever stored after a code sent to it has been entered, so nobody can claim an address that isn't theirs. Anyone can add the sign-in method they're missing at `/account`. A method that's already set can't be replaced, so a stolen session can't lock out the real owner.
+
 ### Windows notes
 
 - **PowerShell blocks `npm` scripts?** Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, or use `npm.cmd` and `npx.cmd`, or use Command Prompt.
@@ -201,6 +217,8 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `DOCUMENT_STORAGE_DIR` | Private folder for uploaded documents; must not be served by the web server |
 | `DOCUMENT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes. Back it up: losing it makes stored documents unreadable |
 | `PAYOUT_ENCRYPTION_KEY` | Base64 key that decodes to 32 bytes, for school payout details. Back it up: losing it means re-entering them |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | Your email provider's SMTP details, for email sign-in codes |
+| `EMAIL_FROM` | The address those emails come from |
 | `MESSAGE_DELIVERY` | Set to `whatsapp` to send sign-in codes and bursar links over WhatsApp |
 | `WHATSAPP_AUTH_DIR` | Folder for the linked WhatsApp session; keep it private |
 

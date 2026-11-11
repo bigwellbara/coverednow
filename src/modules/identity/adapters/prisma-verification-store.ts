@@ -26,6 +26,7 @@ const REVIEW_INCLUDE = {
     select: {
       name: true,
       phone: true,
+      email: true,
       role: true,
       // Onboarding collects one student per account for now.
       students: { select: STUDENT_FIELDS, take: 1, orderBy: { createdAt: "asc" } },
@@ -42,6 +43,7 @@ function toReviewItem({ user, ...verification }: ReviewRow): ReviewItem {
     ...verification,
     applicantName: user.name,
     applicantPhone: user.phone,
+    applicantEmail: user.email,
     applicantRole: user.role,
     student: user.students[0] ?? null,
   };

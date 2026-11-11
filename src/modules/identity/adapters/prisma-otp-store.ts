@@ -2,8 +2,8 @@ import { db } from "@/lib/db";
 import type { OtpStore } from "../services/otp-service";
 
 export const prismaOtpStore: OtpStore = {
-  countForPhoneSince: (phone, since) =>
-    db.otpChallenge.count({ where: { phone, createdAt: { gte: since } } }),
+  countForAddressSince: (address, since) =>
+    db.otpChallenge.count({ where: { address, createdAt: { gte: since } } }),
 
   countForIpSince: (ipHash, since) =>
     db.otpChallenge.count({ where: { ipHash, createdAt: { gte: since } } }),
@@ -12,10 +12,10 @@ export const prismaOtpStore: OtpStore = {
     await db.otpChallenge.create({ data: input });
   },
 
-  findLatestActive: async (phone, now) => {
+  findLatestActive: async (address, now) => {
     // Only the newest code counts, so an older one stops working once replaced.
     const latest = await db.otpChallenge.findFirst({
-      where: { phone },
+      where: { address },
       orderBy: { createdAt: "desc" },
       select: { id: true, codeHash: true, consumedAt: true, expiresAt: true },
     });

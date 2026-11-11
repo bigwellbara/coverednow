@@ -12,16 +12,16 @@ export type OtpChallengeRecord = {
 };
 
 export type OtpStore = {
-  countForPhoneSince(phone: string, since: Date): Promise<number>;
+  countForAddressSince(address: string, since: Date): Promise<number>;
   countForIpSince(ipHash: string, since: Date): Promise<number>;
   create(input: {
-    phone: string;
+    address: string;
     codeHash: string;
     ipHash: string;
     expiresAt: Date;
   }): Promise<void>;
-  /** The newest challenge for the phone, if unused and unexpired. */
-  findLatestActive(phone: string, now: Date): Promise<OtpChallengeRecord | null>;
+  /** The newest challenge for the address, if unused and unexpired. */
+  findLatestActive(address: string, now: Date): Promise<OtpChallengeRecord | null>;
   /** Atomically takes one guess. False once the allowance has run out. */
   claimAttempt(id: string, maxAttempts: number): Promise<boolean>;
   /** Atomically marks it used. False if something else already did. */
@@ -29,7 +29,7 @@ export type OtpStore = {
 };
 
 export type OtpSender = {
-  send(phone: string, code: string): Promise<void>;
+  send(address: string, code: string): Promise<void>;
 };
 
 /** The number cannot receive codes on this channel, such as not being on WhatsApp. */
@@ -47,39 +47,39 @@ export function createOtpService(deps: {
   const now = deps.now ?? (() => new Date());
 
   return {
-    async request(phone: string, ip: string): Promise<OtpRequestResult> {
+    async request(address: string, ip: string): Promise<OtpRequestResult> {
       const at = now();
       const ipHash = hashIp(secret, ip);
 
-      const [forPhone, forIp] = await Promise.all([
-        store.countForPhoneSince(
-          phone,
-          new Date(at.getTime() - OTP_POLICY.phoneWindowMs),
+      const [forAddress, forIp] = await Promise.all([
+        store.countForAddressSince(
+          address,
+          new Date(at.getTime() - OTP_POLICY.addressWindowMs),
         ),
         store.countForIpSince(
           ipHash,
           new Date(at.getTime() - OTP_POLICY.ipWindowMs),
         ),
       ]);
-      if (forPhone >= OTP_POLICY.maxPerPhone || forIp >= OTP_POLICY.maxPerIp) {
+      if (forAddress >= OTP_POLICY.maxPerAddress || forIp >= OTP_POLICY.maxPerIp) {
         return { ok: false, reason: "RATE_LIMITED" };
       }
 
       const code = generateOtpCode();
       await store.create({
-        phone,
+        address,
         ipHash,
-        codeHash: hashOtpCode(secret, phone, code),
+        codeHash: hashOtpCode(secret, address, code),
         expiresAt: new Date(at.getTime() + OTP_POLICY.ttlMs),
       });
-      await sender.send(phone, code);
+      await sender.send(address, code);
       return { ok: true };
     },
 
-    /** True once only, for the newest code sent to this phone. */
-    async verify(phone: string, code: string): Promise<boolean> {
+    /** True once only, for the newest code sent to this address. */
+    async verify(address: string, code: string): Promise<boolean> {
       const at = now();
-      const challenge = await store.findLatestActive(phone, at);
+      const challenge = await store.findLatestActive(address, at);
       if (!challenge) return false;
 
       // The guess is counted before the code is checked, so parallel requests
@@ -87,7 +87,7 @@ export function createOtpService(deps: {
       if (!(await store.claimAttempt(challenge.id, OTP_POLICY.maxAttempts))) {
         return false;
       }
-      if (!otpCodeMatches(secret, phone, code, challenge.codeHash)) return false;
+      if (!otpCodeMatches(secret, address, code, challenge.codeHash)) return false;
 
       return store.consume(challenge.id, at);
     },

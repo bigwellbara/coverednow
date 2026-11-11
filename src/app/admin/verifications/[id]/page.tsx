@@ -34,8 +34,12 @@ export default async function VerificationReviewPage({
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-slate-500">Applying as</dt>
             <dd>{item.applicantRole === "GUARDIAN" ? "Guardian" : "Student"}</dd>
-            <dt className="text-slate-500">Phone</dt>
-            <dd>{item.applicantPhone}</dd>
+            <dt className="text-slate-500">Contact</dt>
+            <dd>
+              {[item.applicantPhone, item.applicantEmail]
+                .filter(Boolean)
+                .join(", ")}
+            </dd>
             <dt className="text-slate-500">Student</dt>
             <dd>
               {item.student

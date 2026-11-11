@@ -8,25 +8,50 @@ vi.mock("@/lib/messaging", async () =>
 );
 
 const PHONE = "+263771234567";
+const EMAIL = "tariro@example.com";
+
+function setup(sendText: (phone: string, text: string) => Promise<void> = async () => {}) {
+  const whatsApp = vi.fn(sendText);
+  const email = vi.fn(async () => {});
+  return {
+    sender: createOtpSender({ sendText: whatsApp }, { send: email }),
+    whatsApp,
+    email,
+  };
+}
 
 describe("createOtpSender", () => {
-  it("sends the code to the number, in a plain message with no links", async () => {
-    const sendText = vi.fn(async () => {});
+  it("sends a phone's code over WhatsApp, plain with no links", async () => {
+    const { sender, whatsApp, email } = setup();
 
-    await createOtpSender({ sendText }).send(PHONE, "123456");
+    await sender.send(PHONE, "123456");
 
-    expect(sendText).toHaveBeenCalledTimes(1);
-    const [phone, message] = sendText.mock.calls[0] as unknown as [string, string];
+    expect(email).not.toHaveBeenCalled();
+    const [phone, message] = whatsApp.mock.calls[0]!;
     expect(phone).toBe(PHONE);
     expect(message).toContain("123456");
     expect(message).not.toMatch(/https?:|www\./);
   });
 
+  it("sends an email address's code by email, with it out of the subject", async () => {
+    const { sender, whatsApp, email } = setup();
+
+    await sender.send(EMAIL, "123456");
+
+    expect(whatsApp).not.toHaveBeenCalled();
+    const [message] = email.mock.calls[0] as unknown as [
+      { to: string; subject: string; text: string },
+    ];
+    expect(message.to).toBe(EMAIL);
+    expect(message.text).toContain("123456");
+    // Subjects show on locked phones and in notification previews.
+    expect(message.subject).not.toContain("123456");
+    expect(message.text).not.toMatch(/https?:|www\./);
+  });
+
   it("reports a number that cannot receive codes", async () => {
-    const sender = createOtpSender({
-      sendText: async () => {
-        throw new RecipientNotOnWhatsAppError();
-      },
+    const { sender } = setup(async () => {
+      throw new RecipientNotOnWhatsAppError();
     });
 
     await expect(sender.send(PHONE, "123456")).rejects.toBeInstanceOf(
@@ -36,10 +61,8 @@ describe("createOtpSender", () => {
 
   it("passes on other delivery failures", async () => {
     const failure = new Error("not connected");
-    const sender = createOtpSender({
-      sendText: async () => {
-        throw failure;
-      },
+    const { sender } = setup(async () => {
+      throw failure;
     });
 
     await expect(sender.send(PHONE, "123456")).rejects.toBe(failure);

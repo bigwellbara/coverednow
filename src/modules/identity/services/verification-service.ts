@@ -33,7 +33,8 @@ export type VerificationRecord = {
 
 export type ReviewItem = VerificationRecord & {
   applicantName: string;
-  applicantPhone: string;
+  applicantPhone: string | null;
+  applicantEmail: string | null;
   applicantRole: string;
   student: StudentDetails | null;
 };
