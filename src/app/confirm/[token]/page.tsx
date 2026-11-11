@@ -37,7 +37,7 @@ export default async function ConfirmBillPage({
   return (
     <main className="mx-auto max-w-xl space-y-6 px-4 py-8">
       <p className="flex items-center gap-2 font-semibold">
-        <GraduationCap className="size-5 text-emerald-700" aria-hidden />
+        <GraduationCap className="size-5 text-brand-700" aria-hidden />
         CoveredNow
       </p>
 
@@ -60,7 +60,7 @@ export default async function ConfirmBillPage({
       {view.state === "ANSWERED" && (
         <Message
           title="This bill has been answered"
-          icon={<CircleCheck className={`${iconClass} text-emerald-700`} aria-hidden />}
+          icon={<CircleCheck className={`${iconClass} text-brand-700`} aria-hidden />}
         >
           Thank you. There&apos;s nothing more you need to do.
         </Message>

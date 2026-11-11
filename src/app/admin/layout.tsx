@@ -1,18 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/modules/identity/adapters/session";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const admin = await requireAdmin();
+  await requireAdmin();
   const linkClass =
-    "inline-flex min-h-11 items-center font-medium text-slate-700 hover:text-emerald-800";
+    "inline-flex min-h-11 items-center font-medium text-slate-700 hover:text-brand-800";
 
   return (
     <>
-      <AppHeader name={admin.name} />
       <nav aria-label="Admin" className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl gap-5 px-4 text-sm">
+        <div className="mx-auto flex max-w-3xl gap-5 overflow-x-auto px-4 text-sm">
           <Link href="/admin/verifications" className={linkClass}>
             Verifications
           </Link>
@@ -21,6 +19,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </Link>
           <Link href="/admin/bills" className={linkClass}>
             Bills
+          </Link>
+          <Link href="/admin/donations" className={linkClass}>
+            Donations
           </Link>
         </div>
       </nav>

@@ -19,7 +19,7 @@ export default async function VerificationQueuePage() {
               <li key={item.id}>
                 <Link
                   href={`/admin/verifications/${item.id}`}
-                  className="card flex items-center justify-between gap-3 hover:border-emerald-700"
+                  className="card flex items-center justify-between gap-3 hover:border-brand-700"
                 >
                   <span>
                     <span className="block font-medium">{item.applicantName}</span>

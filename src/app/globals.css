@@ -1,16 +1,47 @@
 @import "tailwindcss";
 
+/* CoveredNow brand: green #0A5C36 (brand-700) and gold #C9A227 (gold-500). Gold is
+   for accents and fills; text on white uses gold-700 or darker for contrast. */
+@theme {
+  --color-brand-50: #eef7f1;
+  --color-brand-100: #d5ecdd;
+  --color-brand-200: #acd8bd;
+  --color-brand-300: #78bd95;
+  --color-brand-400: #449f6e;
+  --color-brand-500: #228352;
+  --color-brand-600: #136b42;
+  --color-brand-700: #0a5c36;
+  --color-brand-800: #084a2c;
+  --color-brand-900: #063b24;
+  --color-brand-950: #032214;
+
+  --color-gold-50: #fcf8ea;
+  --color-gold-100: #f7edc8;
+  --color-gold-200: #eedb91;
+  --color-gold-300: #e3c45c;
+  --color-gold-400: #d7b13c;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a7831d;
+  --color-gold-700: #82641a;
+  --color-gold-800: #634c17;
+  --color-gold-900: #4a3913;
+}
+
 @layer components {
   .btn-primary,
   .btn-secondary,
+  .btn-gold,
   .btn-danger {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-primary {
-    @apply bg-emerald-700 text-white hover:bg-emerald-800;
+    @apply bg-brand-700 text-white hover:bg-brand-800;
   }
   .btn-secondary {
     @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+  }
+  .btn-gold {
+    @apply border-2 border-gold-500 bg-white text-gold-800 hover:bg-gold-50;
   }
   .btn-danger {
     @apply bg-red-700 text-white hover:bg-red-800;
@@ -19,15 +50,18 @@
     @apply mb-1 block text-sm font-medium text-slate-800;
   }
   .field-input {
-    @apply block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-emerald-700 focus:outline-2 focus:outline-emerald-700/30;
+    @apply block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-700 focus:outline-2 focus:outline-brand-700/30;
   }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-5;
+    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
   .form-error {
     @apply rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800;
   }
   .form-success {
-    @apply rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800;
+    @apply rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-800;
   }
 }

@@ -26,7 +26,7 @@ export default async function SchoolsPage() {
             <li key={school.id}>
               <Link
                 href={`/admin/schools/${school.id}`}
-                className="card flex items-center justify-between gap-3 hover:border-emerald-700"
+                className="card flex items-center justify-between gap-3 hover:border-brand-700"
               >
                 <span>
                   <span className="block font-medium">{school.name}</span>
@@ -34,7 +34,7 @@ export default async function SchoolsPage() {
                     {BILLER_TYPE_LABELS[school.type]}, {school.city}
                   </span>
                   {school.verified ? (
-                    <span className="mt-1 flex items-center gap-1 text-sm text-emerald-800">
+                    <span className="mt-1 flex items-center gap-1 text-sm text-brand-800">
                       <CircleCheck className="size-4" aria-hidden />
                       Verified
                     </span>

@@ -1,7 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
 import { getBillService } from "@/modules/billing";
 import { termOptions } from "@/modules/billing/domain/bill";
 import { requireApplicant } from "@/modules/identity/adapters/session";
@@ -17,11 +16,10 @@ export default async function NewBillPage() {
 
   return (
     <>
-      <AppHeader name={owner.name} />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <Link
           href="/bills"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-emerald-800"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Back to bills

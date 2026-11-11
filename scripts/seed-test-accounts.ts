@@ -1,15 +1,21 @@
-// Creates test accounts and schools for local development, through the real
-// services, so documents are encrypted and everything is in the audit log.
+// Creates test accounts, schools, confirmed bills and donations for local
+// development, through the real services, so documents are encrypted, funding
+// runs through the payments ledger, and everything is in the audit log.
 // Safe to run repeatedly: anything that already exists is left alone.
 //
 // Usage: npm run db:seed-test
 import { db } from "@/lib/db";
-import { getBillerService } from "@/modules/billing";
+import { requireEnv } from "@/lib/env";
+import { getBillService, getBillerService } from "@/modules/billing";
+import { parseDueDate } from "@/modules/billing/domain/bill";
 import type { BillerDetails, PayoutDetails } from "@/modules/billing/domain/biller";
 import { getVerificationService } from "@/modules/identity";
+import { signConfirmationToken } from "@/modules/billing/domain/confirmation-token";
 import type { DocumentKind } from "@/modules/identity/domain/verification";
+import { getPaymentService } from "@/modules/payments";
+import type { Visibility } from "@/modules/payments/domain/checkout";
 
-type Role = "ADMIN" | "STUDENT" | "GUARDIAN";
+type Role = "ADMIN" | "STUDENT" | "GUARDIAN" | "DONOR";
 type Stage = "new" | "in-review" | "sent-back" | "verified";
 
 type TestAccount = {
@@ -24,6 +30,12 @@ const ADMIN: TestAccount = {
   phone: "+263771000001",
   name: "Test Admin",
   role: "ADMIN",
+};
+
+const DONOR: TestAccount = {
+  phone: "+263771000008",
+  name: "Test Donor",
+  role: "DONOR",
 };
 
 const APPLICANTS: TestAccount[] = [
@@ -70,6 +82,48 @@ const SCHOOLS: Array<{
     details: { name: "Test College (not verified)", type: "COLLEGE", city: "Mutare" },
     contactPhone: "+263771000013",
     verified: false,
+  },
+];
+
+/** Confirmed bills, so the public feed has something to show, in different states. */
+const BILLS: Array<{
+  owner: string;
+  school: string;
+  regNumber: string;
+  period: "S1" | "T1";
+  claimedCents: number;
+  dueInDays: number;
+  donations: Array<{ cents: number; visibility: Visibility; alias?: string }>;
+}> = [
+  {
+    owner: "+263771000006",
+    school: "Test University",
+    regNumber: "TU2027001",
+    period: "S1",
+    claimedCents: 29_400,
+    dueInDays: 12,
+    donations: [
+      { cents: 12_000, visibility: "PUBLIC" },
+      { cents: 8_000, visibility: "ANONYMOUS" },
+    ],
+  },
+  {
+    owner: "+263771000007",
+    school: "Test High School",
+    regNumber: "HS2027118",
+    period: "T1",
+    claimedCents: 18_000,
+    dueInDays: 21,
+    donations: [{ cents: 5_000, visibility: "ALIAS", alias: "Bulawayo Old Girls" }],
+  },
+  {
+    owner: "test.student@example.com",
+    school: "Test University",
+    regNumber: "TU2027002",
+    period: "S1",
+    claimedCents: 39_500,
+    dueInDays: 30,
+    donations: [],
   },
 ];
 
@@ -209,22 +263,78 @@ async function ensureSchool(school: (typeof SCHOOLS)[number], adminId: string) {
   }
 }
 
+/** Submits, confirms and part-funds a bill, unless the owner already has one. */
+async function ensureBill(bill: (typeof BILLS)[number], donorId: string) {
+  const owner = await db.user.findFirstOrThrow({
+    where: bill.owner.includes("@") ? { email: bill.owner } : { phone: bill.owner },
+  });
+  if ((await db.bill.count({ where: { ownerId: owner.id } })) > 0) return;
+
+  const school = await db.biller.findFirstOrThrow({ where: { name: bill.school } });
+  const due = new Date(Date.now() + bill.dueInDays * 24 * 60 * 60 * 1000);
+  const bills = getBillService();
+  const submitted = await bills.submit(
+    { id: owner.id, role: owner.role === "GUARDIAN" ? "GUARDIAN" : "STUDENT" },
+    {
+      billerId: school.id,
+      regNumber: bill.regNumber,
+      term: `${due.getUTCFullYear() + 1}-${bill.period}`,
+      claimedCents: bill.claimedCents,
+      dueDate: parseDueDate(due.toISOString().slice(0, 10))!,
+      statement: samplePdf(`FEE STATEMENT for ${owner.name}`),
+    },
+  );
+  if (!submitted.ok) throw new Error(`${owner.name}'s bill: ${submitted.error}`);
+
+  await bills.sendConfirmationLinks(submitted.id);
+  const confirmation = await db.billConfirmation.findFirstOrThrow({
+    where: { billId: submitted.id, status: "PENDING" },
+  });
+  const token = signConfirmationToken(requireEnv("CONFIRMATION_TOKEN_SECRET"), confirmation.id);
+  if (!(await bills.respond(token, { decision: "CONFIRM" }))) {
+    throw new Error(`${owner.name}'s bill could not be confirmed`);
+  }
+
+  const payments = getPaymentService();
+  const donor = { id: donorId, name: DONOR.name };
+  for (const gift of bill.donations) {
+    const started = await payments.startCheckout(donor, {
+      billId: submitted.id,
+      amountCents: gift.cents,
+      tipPercent: 7,
+      visibility: gift.visibility,
+      alias: gift.alias ?? "",
+    });
+    if (!started.ok) throw new Error(`Donation to ${owner.name}'s bill: ${started.error}`);
+    const donation = await payments.findForDonor(donorId, started.donationId);
+    await payments.simulate(donation!.reference, "PAID");
+  }
+}
+
 async function main() {
   refuseUnlessLocal();
 
   const { user: admin } = await ensureUser(ADMIN);
+  const { user: donor } = await ensureUser(DONOR);
   for (const account of APPLICANTS) await advanceApplicant(account, admin.id);
   for (const school of SCHOOLS) await ensureSchool(school, admin.id);
+
+  // Donations go through the simulated gateway, which only exists without Paynow keys.
+  if (getPaymentService().gatewayName === "simulated") {
+    for (const bill of BILLS) await ensureBill(bill, donor.id);
+  } else {
+    console.log("Paynow is configured, so no test bills or donations were created.");
+  }
 
   // Clears rate limits, so heavy testing can carry on after a re-run.
   await db.otpChallenge.deleteMany({
     where: {
-      address: { in: [ADMIN, ...APPLICANTS].map((a) => (a.phone ?? a.email)!) },
+      address: { in: [ADMIN, DONOR, ...APPLICANTS].map((a) => (a.phone ?? a.email)!) },
     },
   });
 
   console.log("\nTest accounts (sign-in codes print in the npm run dev terminal):\n");
-  for (const { phone, email, name, stage } of [ADMIN, ...APPLICANTS]) {
+  for (const { phone, email, name, stage } of [ADMIN, DONOR, ...APPLICANTS]) {
     const address = phone?.replace("+263", "0") ?? email;
     console.log(`  ${address}  ${name}${stage ? ` (${stage})` : ""}`);
   }

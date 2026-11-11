@@ -20,7 +20,7 @@ export default async function AdminBillsPage() {
             <li key={bill.id}>
               <Link
                 href={`/admin/bills/${bill.id}`}
-                className="card flex items-center justify-between gap-3 hover:border-emerald-700"
+                className="card flex items-center justify-between gap-3 hover:border-brand-700"
               >
                 <span>
                   <span className="block font-medium">{bill.billerName}</span>

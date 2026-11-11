@@ -11,7 +11,7 @@ import type {
 const CLOSED_STATUSES = ["REJECTED", "CANCELLED"] as const;
 
 const BILL_INCLUDE = {
-  biller: { select: { name: true, type: true } },
+  biller: { select: { name: true, type: true, city: true } },
 } satisfies Prisma.BillInclude;
 
 type BillRow = Prisma.BillGetPayload<{ include: typeof BILL_INCLUDE }>;
@@ -24,17 +24,21 @@ function toRecord(row: BillRow): BillRecord {
     billerId: row.billerId,
     billerName: row.biller.name,
     billerType: row.biller.type,
+    billerCity: row.biller.city,
     regNumber: row.regNumber,
     term: row.term,
     claimedCents: decimalToCents(row.claimedAmount.toFixed(2)),
     confirmedCents: row.confirmedAmount
       ? decimalToCents(row.confirmedAmount.toFixed(2))
       : null,
+    raisedCents: decimalToCents(row.raisedAmount.toFixed(2)),
     dueDate: row.dueDate,
     documentKey: row.documentKey,
     status: row.status,
     closedReason: row.closedReason,
     createdAt: row.createdAt,
+    confirmedAt: row.confirmedAt,
+    fundedAt: row.fundedAt,
   };
 }
 
@@ -134,6 +138,80 @@ export const prismaBillStore: BillStore = {
     return rows.map(toRecord);
   },
 
+  listByStatus: async (statuses) => {
+    const rows = await db.bill.findMany({
+      where: { status: { in: [...statuses] } },
+      include: BILL_INCLUDE,
+      orderBy: { createdAt: "desc" },
+      // Plenty for a pilot. Past this, filter and sort in the database instead.
+      take: 1000,
+    });
+    return rows.map(toRecord);
+  },
+
+  findMany: async (ids) => {
+    const rows = await db.bill.findMany({
+      where: { id: { in: [...ids] } },
+      include: BILL_INCLUDE,
+    });
+    return rows.map(toRecord);
+  },
+
+  updateFunding: (id, decide) =>
+    db.$transaction(async (tx) => {
+      // Waits for any other sync of this bill to finish first.
+      await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${id} FOR UPDATE`;
+      const row = await tx.bill.findUnique({ where: { id }, include: BILL_INCLUDE });
+      if (!row) return null;
+
+      const before = toRecord(row);
+      const after = await decide(before);
+      await tx.bill.update({
+        where: { id },
+        data: {
+          raisedAmount: centsToDecimal(after.raisedCents),
+          status: after.status,
+          fundedAt: after.fundedAt,
+        },
+      });
+      if (after.status !== before.status || after.raisedCents !== before.raisedCents) {
+        await tx.auditLog.create({
+          data: {
+            action:
+              after.status === before.status
+                ? "bill.raised_changed"
+                : `bill.${after.status.toLowerCase()}`,
+            entity: "Bill",
+            entityId: id,
+            meta: {
+              from: before.status,
+              raisedCents: after.raisedCents,
+              previousRaisedCents: before.raisedCents,
+            },
+          },
+        });
+      }
+      return { before, after };
+    }),
+
+  stats: async (publicStatuses) => {
+    const where = { status: { in: [...publicStatuses] } };
+    const [raised, students, verifiedSchools] = await Promise.all([
+      db.bill.aggregate({ where, _sum: { raisedAmount: true } }),
+      db.bill.findMany({
+        where: { ...where, raisedAmount: { gt: 0 } },
+        distinct: ["studentId"],
+        select: { studentId: true },
+      }),
+      db.biller.count({ where: { verified: true } }),
+    ]);
+    return {
+      raisedCents: decimalToCents((raised._sum.raisedAmount ?? new Prisma.Decimal(0)).toFixed(2)),
+      studentsSupported: students.length,
+      verifiedSchools,
+    };
+  },
+
   close: (id, from, to, actorId, reason) =>
     db.$transaction(async (tx) => {
       const { count } = await tx.bill.updateMany({
@@ -216,7 +294,9 @@ export const prismaBillStore: BillStore = {
         },
         bill: {
           include: {
-            biller: { select: { name: true, type: true, verified: true } },
+            biller: {
+              select: { name: true, type: true, city: true, verified: true },
+            },
           },
         },
       },
@@ -253,6 +333,8 @@ export const prismaBillStore: BillStore = {
           data: {
             status: response.billStatus,
             closedReason: response.closedReason,
+            confirmedAt:
+              response.billStatus === "SCHOOL_CONFIRMED" ? response.at : null,
             confirmedAmount:
               response.confirmedCents === null
                 ? null
