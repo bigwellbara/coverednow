@@ -6,6 +6,7 @@ import { getDocumentStore } from "@/lib/document-store";
 import { requireEnv } from "@/lib/env";
 import { createMessageSender } from "@/lib/messaging";
 import { getStudentDirectory } from "@/modules/identity";
+import { donationLedger } from "@/modules/payments/ledger";
 import { createPayoutCipher } from "./adapters/payout-cipher";
 import { prismaBillStore } from "./adapters/prisma-bill-store";
 import { prismaBillerStore } from "./adapters/prisma-biller-store";
@@ -32,6 +33,7 @@ export function getBillService(): BillService {
     store: prismaBillStore,
     students: getStudentDirectory(),
     files: getDocumentStore(),
+    ledger: donationLedger,
     messages: createMessageSender(),
     tokenSecret: requireEnv("CONFIRMATION_TOKEN_SECRET"),
     baseUrl: requireEnv("NEXTAUTH_URL").replace(/\/$/, ""),

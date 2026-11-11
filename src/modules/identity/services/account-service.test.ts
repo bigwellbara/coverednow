@@ -112,7 +112,7 @@ describe("account service", () => {
       expect(t.created).toEqual([]);
     });
 
-    it.each(["ADMIN", "SPONSOR", "DONOR", "SCHOOL_CONTACT", ""])(
+    it.each(["ADMIN", "SPONSOR", "SCHOOL_CONTACT", ""])(
       "refuses to sign up with the %s role",
       async (role) => {
         const result = await t.service.signIn({

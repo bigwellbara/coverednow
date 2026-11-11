@@ -2,8 +2,9 @@ import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 import { db } from "@/lib/db";
-import { isApplicantRole, type ApplicantRole } from "../domain/account";
+import { homePathFor, isApplicantRole, type ApplicantRole } from "../domain/account";
 import { getAccountService } from "../index";
 
 const SEVEN_DAYS_IN_SECONDS = 7 * 24 * 60 * 60;
@@ -52,8 +53,9 @@ export type CurrentUser = {
 /**
  * Reads the user fresh from the database, not the session token, so a role
  * change or removal takes effect at once rather than when the token expires.
+ * Cached for one request, as the header and the page both ask.
  */
-export async function currentUser(): Promise<CurrentUser | null> {
+export const currentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await getServerSession(authOptions);
   const id = (session as { user?: { id?: string } } | null)?.user?.id;
   if (!id) return null;
@@ -61,7 +63,7 @@ export async function currentUser(): Promise<CurrentUser | null> {
     where: { id },
     select: { id: true, name: true, phone: true, email: true, role: true },
   });
-}
+});
 
 export async function requireUser(): Promise<CurrentUser> {
   const user = await currentUser();
@@ -73,8 +75,7 @@ export async function requireApplicant(): Promise<
   CurrentUser & { role: ApplicantRole }
 > {
   const user = await requireUser();
-  if (user.role === "ADMIN") redirect("/admin/verifications");
-  if (!isApplicantRole(user.role)) redirect("/");
+  if (!isApplicantRole(user.role)) redirect(homePathFor(user.role));
   return { ...user, role: user.role };
 }
 

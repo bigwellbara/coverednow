@@ -6,7 +6,7 @@ CoveredNow lets verified students (or their guardians) list school-confirmed fee
 
 CoveredNow is a product of [FirmwareNerds](https://github.com/bigwellbara/coverednow). Launch market: Zimbabwe, starting with universities, colleges and high schools.
 
-> **Status: early development.** Sign-up, identity verification, school management, bill submission and school confirmation are in place. Donations and payouts are being built next. See the [Roadmap](#roadmap).
+> **Status: early development.** Sign-up, identity verification, school management, bill submission, school confirmation, the public bill feed and donations through Paynow are in place. Payouts are being built next. See the [Roadmap](#roadmap).
 
 ---
 
@@ -51,7 +51,7 @@ Side exits: `REJECTED`, `EXPIRED`, `CANCELLED`, `DISPUTED`.
 | Icons | Lucide |
 | Tests | Vitest |
 | Local database | Docker Compose |
-| Payments (planned) | Paynow (EcoCash, OneMoney, cards) |
+| Payments | Paynow web checkout (EcoCash, OneMoney, cards), with a simulator for development |
 
 ## Architecture
 
@@ -88,8 +88,9 @@ coverednow/
     lib/
       db.ts                  Prisma client
     modules/                 Domain modules (added as each is built)
-      billing/               Bill status rules, schools, contacts
+      billing/               Bill status rules, schools, contacts, public feed
       identity/              Accounts, sign-in, verification
+      payments/              Checkout, Paynow, donation ledger
   scripts/                   Operational scripts
   docker-compose.yml         Local PostgreSQL
   .env.example               Environment variable template
@@ -149,6 +150,7 @@ npm run db:seed-test
 | Number | Account |
 |---|---|
 | `0771000001` | Admin |
+| `0771000008` | Donor who has given to two bills |
 | `0771000002` | Student who hasn't started |
 | `0771000003` | Guardian who hasn't started |
 | `0771000004` | Student waiting in the review queue |
@@ -157,7 +159,7 @@ npm run db:seed-test
 | `0771000007` | Verified guardian |
 | `test.student@example.com` | Verified student who signs in by email |
 
-The script only runs against a local database and with WhatsApp delivery off, because these numbers are made up and may belong to real people. Running it again leaves existing data alone and clears the code limits for these numbers, which helps if you see "Too many codes requested".
+The script also lists three school-confirmed bills (two part-funded by the test donor, one untouched), so `/browse` has something to show. The script only runs against a local database and with WhatsApp delivery off, because these numbers are made up and may belong to real people. Running it again leaves existing data alone and clears the code limits for these numbers, which helps if you see "Too many codes requested".
 
 To make your own admin instead, run `npm run admin:create -- +263771234567 "Your Name"`. Admins manage schools at `/admin/schools` and review applications at `/admin/verifications`.
 
@@ -194,6 +196,28 @@ EMAIL_FROM="CoveredNow <no-reply@your-domain.com>"
 
 An email or phone is only ever stored after a code sent to it has been entered, so nobody can claim an address that isn't theirs. Anyone can add the sign-in method they're missing at `/account`. A method that's already set can't be replaced, so a stolen session can't lock out the real owner.
 
+### Taking donations
+
+Donors browse confirmed bills at `/browse`, sign in or sign up as a donor, and pay on Paynow's own page. Paynow then posts the result to `/api/webhooks/paynow`. That message is checked against your integration key before anything changes, and repeats are harmless. When the donor comes back, the app also asks Paynow directly, in case the webhook is late.
+
+Without Paynow keys, development uses a **simulated gateway**: "Pay" takes you to a local test page where one click settles or cancels the payment. A production build refuses to take payments until the keys are set.
+
+To use Paynow, set these in `.env` from your Paynow merchant account, then restart the app:
+
+```bash
+PAYNOW_INTEGRATION_ID="12345"
+PAYNOW_INTEGRATION_KEY="your-integration-key"
+PAYNOW_RESULT_URL="https://your-domain/api/webhooks/paynow"
+PAYNOW_RETURN_URL="https://your-domain/payments/return"
+PAYMENT_FEE_PERCENT="2.5"
+```
+
+Paynow must be able to reach `PAYNOW_RESULT_URL` from the internet. Locally, use a tunnel, or rely on the return page's check.
+
+How the money adds up: the school gets the whole donation. The donor also pays an optional tip (7% by default, removable) and a processing fee that covers the gateway's percentage of the total. **Set `PAYMENT_FEE_PERCENT` to the rate in your Paynow agreement.** The 2.5% default is only an estimate.
+
+When a donation settles, the payments module records it and writes an `OutboxEvent` in the same transaction. Billing then locks the bill's row, re-reads the ledger total, and moves the bill to partly or fully funded. If that step fails, the event stays unprocessed and is retried on the next payment message, or when an admin opens `/admin/donations`. Money that arrives beyond the confirmed amount, or on a bill that has closed, is flagged on the admin bill page for a refund.
+
 ### Windows notes
 
 - **PowerShell blocks `npm` scripts?** Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, or use `npm.cmd` and `npx.cmd`, or use Command Prompt.
@@ -210,6 +234,7 @@ Copy `.env.example` to `.env` and adjust. **Never commit `.env`.**
 | `PAYNOW_INTEGRATION_KEY` | Paynow merchant integration key |
 | `PAYNOW_RESULT_URL` | Webhook URL Paynow calls with payment results |
 | `PAYNOW_RETURN_URL` | Where donors return after paying |
+| `PAYMENT_FEE_PERCENT` | The gateway's percentage, passed on to donors so schools get the full amount. Defaults to 2.5; set it from your Paynow agreement |
 | `CONFIRMATION_TOKEN_SECRET` | Signing secret for school confirmation links; use a long random value outside local development |
 | `NEXTAUTH_URL` | The app's public URL |
 | `NEXTAUTH_SECRET` | Signs session cookies |
@@ -275,8 +300,8 @@ Found a security problem? Please report it privately to the maintainers rather t
 - [x] Student and guardian onboarding and verification
 - [x] School onboarding and contact verification
 - [x] Bill submission and school confirmation flow
-- [ ] Public bill feed and bill detail pages
-- [ ] Paynow checkout, webhooks and ledger
+- [x] Public bill feed and bill detail pages
+- [x] Paynow checkout, webhooks and ledger
 - [ ] Manual payout recording with proof of payment
 - [ ] Impact updates and basic leaderboards
 - [ ] Closed pilot with 3 to 5 institutions

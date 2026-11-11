@@ -1,10 +1,15 @@
-import { ArrowLeft, CircleAlert, CircleCheck, Clock } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, Clock, ExternalLink, Share2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
 import { getBillService } from "@/modules/billing";
 import { BILL_STATUS_LABELS, termLabel } from "@/modules/billing/domain/bill";
 import { formatMoney } from "@/modules/billing/domain/money";
+import { ProgressBar } from "@/components/progress-bar";
+import { siteUrl, whatsAppShareUrl } from "@/lib/format";
+import {
+  isPublicStatus,
+  percentFunded,
+} from "@/modules/billing/domain/public-bill";
 import { requireApplicant } from "@/modules/identity/adapters/session";
 import { WithdrawBillForm } from "../forms";
 
@@ -25,11 +30,10 @@ export default async function BillPage({
 
   return (
     <>
-      <AppHeader name={owner.name} />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <Link
           href="/bills"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-emerald-800"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Back to bills
@@ -46,7 +50,7 @@ export default async function BillPage({
           </div>
         )}
         {bill.status === "SCHOOL_CONFIRMED" && (
-          <div className="flex gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900">
+          <div className="flex gap-3 rounded-xl bg-brand-50 p-4 text-brand-900">
             <CircleCheck className="size-5 shrink-0" aria-hidden />
             <p className="text-sm">
               The school has confirmed this bill.
@@ -54,6 +58,44 @@ export default async function BillPage({
                 ` It corrected the amount to ${formatMoney(bill.confirmedCents!)}.`}
             </p>
           </div>
+        )}
+        {isPublicStatus(bill.status) && bill.confirmedCents !== null && (
+          <section className="card space-y-3" aria-labelledby="funding-heading">
+            <h2 id="funding-heading" className="font-semibold">
+              Funding
+            </h2>
+            <ProgressBar
+              percent={percentFunded({
+                confirmedCents: bill.confirmedCents,
+                raisedCents: bill.raisedCents,
+              })}
+              label="Funded so far"
+            />
+            <p className="text-sm text-slate-700">
+              {formatMoney(bill.raisedCents)} raised of {formatMoney(bill.confirmedCents)}.
+              Donations are paid to the school, not to you.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/browse/${bill.id}`} className="btn-secondary">
+                <ExternalLink className="size-4" aria-hidden />
+                See your public page
+              </Link>
+              <a
+                href={whatsAppShareUrl(
+                  `My school fees are listed on CoveredNow, confirmed by my school. Any help is paid straight to the school: ${siteUrl(`/browse/${bill.id}`)}`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-gold"
+              >
+                <Share2 className="size-4" aria-hidden />
+                Share on WhatsApp
+              </a>
+            </div>
+            <p className="text-xs text-slate-500">
+              Your public page shows only your initials, level and school.
+            </p>
+          </section>
         )}
         {bill.status === "REJECTED" && (
           <div className="flex gap-3 rounded-xl bg-amber-50 p-4 text-amber-900">

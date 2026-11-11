@@ -210,6 +210,12 @@ model Bill {
   documentHash    String
   status          BillStatus         @default(DRAFT)
   closedReason    String?
+  // Settled donations, excluding tips and fees. Kept in step with the payments
+  // ledger by the billing module, under a row lock, so the feed never needs to
+  // read another module's tables.
+  raisedAmount    Decimal            @default(0) @db.Decimal(12, 2)
+  confirmedAt     DateTime?
+  fundedAt        DateTime?
   confirmations   BillConfirmation[]
   donations       Donation[]
   payout          Payout?
@@ -221,7 +227,7 @@ model Bill {
   // Prisma cannot express them: while a bill is active, there is one per school,
   // reg number and term, one per student and term, and one per fee statement. A
   // rejected or withdrawn bill frees them, so a fake bill cannot block a real one.
-  @@index([status])
+  @@index([status, dueDate])
   @@index([studentId])
 }
 
@@ -252,13 +258,22 @@ model Donation {
   gatewayFee  Decimal        @default(0) @db.Decimal(12, 2)
   currency    String
   visibility  Visibility     @default(PUBLIC)
+  // The name shown with this gift, fixed when it is made: the donor's name, an
+  // alias, or null when anonymous.
+  displayName String?
+  // Our reference, sent to the gateway and shown on receipts.
   gatewayRef  String         @unique
+  // The gateway's own reference, once it reports one.
+  providerRef String?
+  // Where to ask the gateway for the latest status.
+  pollUrl     String?
   status      DonationStatus @default(INITIATED)
   settledAt   DateTime?
+  failedAt    DateTime?
   createdAt   DateTime       @default(now())
 
-  @@index([billId])
-  @@index([donorId])
+  @@index([billId, status])
+  @@index([donorId, createdAt])
 }
 
 model Payout {

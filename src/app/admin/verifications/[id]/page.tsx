@@ -23,7 +23,7 @@ export default async function VerificationReviewPage({
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <Link
           href="/admin/verifications"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-emerald-800"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Back to queue
@@ -63,7 +63,7 @@ export default async function VerificationReviewPage({
                   href={`/admin/verifications/documents/${document.id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex min-h-11 items-center gap-2 font-medium text-emerald-800 underline"
+                  className="inline-flex min-h-11 items-center gap-2 font-medium text-brand-800 underline"
                 >
                   <FileText className="size-4" aria-hidden />
                   {DOCUMENT_KIND_LABELS[document.kind]}

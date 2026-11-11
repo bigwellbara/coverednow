@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseSignInAddress, signUpDetailsSchema } from "./account";
+import {
+  homePathFor,
+  parseSignInAddress,
+  safeNextPath,
+  signUpDetailsSchema,
+} from "./account";
 
 describe("parseSignInAddress", () => {
   it.each(["0771234567", "+263 77 123 4567", "263771234567"])(
@@ -56,9 +61,42 @@ describe("signUpDetailsSchema", () => {
     ).toEqual({ name: "Tariro Moyo", role: "STUDENT" });
   });
 
-  it.each(["ADMIN", "DONOR", "SPONSOR", ""])("refuses the %j role", (role) => {
+  it("accepts a donor", () => {
+    expect(signUpDetailsSchema.parse({ name: "Rudo", role: "DONOR" }).role).toBe("DONOR");
+  });
+
+  it.each(["ADMIN", "SCHOOL_CONTACT", "SPONSOR", ""])("refuses the %j role", (role) => {
     expect(
       signUpDetailsSchema.safeParse({ name: "Tariro Moyo", role }).success,
     ).toBe(false);
+  });
+});
+
+describe("safeNextPath", () => {
+  it.each(["/browse", "/browse/abc123/give?amount=2500", "/giving"])("keeps %j", (path) => {
+    expect(safeNextPath(path)).toBe(path);
+  });
+
+  it.each([
+    "//evil.test",
+    "/\\evil.test",
+    "https://evil.test",
+    "javascript:alert(1)",
+    "browse",
+    "/a b",
+    `/${"a".repeat(250)}`,
+    42,
+    undefined,
+  ])("refuses %j", (path) => {
+    expect(safeNextPath(path)).toBeNull();
+  });
+});
+
+describe("homePathFor", () => {
+  it("sends each role to its own start page", () => {
+    expect(homePathFor("ADMIN")).toBe("/admin/verifications");
+    expect(homePathFor("DONOR")).toBe("/giving");
+    expect(homePathFor("STUDENT")).toBe("/onboarding");
+    expect(homePathFor("GUARDIAN")).toBe("/onboarding");
   });
 });

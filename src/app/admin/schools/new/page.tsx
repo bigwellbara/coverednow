@@ -10,7 +10,7 @@ export default async function NewSchoolPage() {
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <Link
         href="/admin/schools"
-        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-emerald-800"
+        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
       >
         <ArrowLeft className="size-4" aria-hidden />
         Back to schools

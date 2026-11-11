@@ -1,7 +1,6 @@
 import { CircleAlert, CircleCheck, Clock, FileCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AppHeader } from "@/components/app-header";
 import { getVerificationService } from "@/modules/identity";
 import { requireApplicant } from "@/modules/identity/adapters/session";
 import {
@@ -18,7 +17,7 @@ function Banner(props: {
 }) {
   const tones = {
     info: "bg-sky-50 text-sky-900",
-    good: "bg-emerald-50 text-emerald-900",
+    good: "bg-brand-50 text-brand-900",
     warn: "bg-amber-50 text-amber-900",
   };
   return (
@@ -41,7 +40,6 @@ export default async function OnboardingPage() {
 
   return (
     <>
-      <AppHeader name={applicant.name} />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <h1 className="text-2xl font-bold">Verify your account</h1>
 
@@ -110,7 +108,7 @@ export default async function OnboardingPage() {
               {documents.map((document) => (
                 <li key={document.id} className="flex items-center gap-2 text-sm">
                   <FileCheck
-                    className="size-4 shrink-0 text-emerald-700"
+                    className="size-4 shrink-0 text-brand-700"
                     aria-hidden
                   />
                   {DOCUMENT_KIND_LABELS[document.kind]} uploaded

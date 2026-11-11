@@ -1,12 +1,11 @@
 import { CircleCheck } from "lucide-react";
-import { AppHeader } from "@/components/app-header";
 import { requireUser } from "@/modules/identity/adapters/session";
 import { AddMethodForm } from "./add-method-form";
 
 function Method({ label, value }: { label: string; value: string }) {
   return (
     <li className="flex items-center gap-2 text-sm">
-      <CircleCheck className="size-4 shrink-0 text-emerald-700" aria-hidden />
+      <CircleCheck className="size-4 shrink-0 text-brand-700" aria-hidden />
       <span className="text-slate-500">{label}:</span>
       <span className="min-w-0 break-all">{value}</span>
     </li>
@@ -18,7 +17,6 @@ export default async function AccountPage() {
 
   return (
     <>
-      <AppHeader name={user.name} />
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         <h1 className="text-2xl font-bold">Your account</h1>
 

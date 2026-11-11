@@ -24,4 +24,10 @@ export const prismaStudentDirectory = {
       where: { id: studentId },
       select: { firstName: true, lastName: true, level: true },
     }),
+
+  findStudents: (studentIds: readonly string[]) =>
+    db.student.findMany({
+      where: { id: { in: [...studentIds] } },
+      select: { id: true, firstName: true, lastName: true, level: true },
+    }),
 };

@@ -11,7 +11,12 @@ import {
   normalizeRegNumber,
   schoolTypesFor,
 } from "../domain/bill";
-import { checkTransition, type BillActor, type BillStatus } from "../domain/bill-status";
+import {
+  checkTransition,
+  fundingPosition,
+  type BillActor,
+  type BillStatus,
+} from "../domain/bill-status";
 import type { BillerType } from "../domain/biller";
 import {
   CONFIRMATION_TTL_MS,
@@ -19,6 +24,15 @@ import {
   readConfirmationToken,
   signConfirmationToken,
 } from "../domain/confirmation-token";
+import {
+  PUBLIC_STATUSES,
+  applyFeedFilter,
+  initialsOf,
+  isOpenForDonations,
+  isPublicStatus,
+  type FeedFilter,
+  type PublicBill,
+} from "../domain/public-bill";
 
 export type BillOwner = { id: string; role: "STUDENT" | "GUARDIAN" };
 
@@ -29,15 +43,43 @@ export type BillRecord = {
   billerId: string;
   billerName: string;
   billerType: BillerType;
+  billerCity: string;
   regNumber: string;
   term: string;
   claimedCents: number;
   confirmedCents: number | null;
+  /** Settled donations, excluding tips and fees, as last synced from the ledger. */
+  raisedCents: number;
   dueDate: Date;
   documentKey: string;
   status: BillStatus;
   closedReason: string | null;
   createdAt: Date;
+  confirmedAt: Date | null;
+  fundedAt: Date | null;
+};
+
+/** What a funding sync writes back to the bill. */
+export type FundingUpdate = {
+  raisedCents: number;
+  status: BillStatus;
+  fundedAt: Date | null;
+};
+
+export type FundingSync =
+  | { ok: false; error: "NOT_FOUND" }
+  | {
+      ok: true;
+      status: BillStatus;
+      raisedCents: number;
+      /** Money beyond the confirmed amount, or on a bill that can no longer take it. */
+      surplusCents: number;
+    };
+
+export type SiteStats = {
+  raisedCents: number;
+  studentsSupported: number;
+  verifiedSchools: number;
 };
 
 export type SchoolOption = {
@@ -95,6 +137,18 @@ export type BillStore = {
   find(id: string): Promise<BillRecord | null>;
   listForOwner(ownerId: string): Promise<BillRecord[]>;
   listAll(): Promise<BillRecord[]>;
+  listByStatus(statuses: readonly BillStatus[]): Promise<BillRecord[]>;
+  findMany(ids: readonly string[]): Promise<BillRecord[]>;
+  /**
+   * Locks the bill row, hands the locked bill to `decide`, and writes what it
+   * returns in the same transaction. Two syncs for one bill run one after the
+   * other, so the later one always sees the newer ledger total.
+   */
+  updateFunding(
+    id: string,
+    decide: (bill: BillRecord) => Promise<FundingUpdate>,
+  ): Promise<{ before: BillRecord; after: FundingUpdate } | null>;
+  stats(publicStatuses: readonly BillStatus[]): Promise<SiteStats>;
   /** Only applies if the bill is still in `from`. False if it has moved on. */
   close(
     id: string,
@@ -146,6 +200,17 @@ export type StudentDirectory = {
   findStudent(
     studentId: string,
   ): Promise<{ firstName: string; lastName: string; level: string } | null>;
+  findStudents(
+    studentIds: readonly string[],
+  ): Promise<
+    Array<{ id: string; firstName: string; lastName: string; level: string }>
+  >;
+};
+
+/** What billing needs from the payments module: the truth about money received. */
+export type FundingLedger = {
+  /** Sum of settled, unrefunded donations to the bill, excluding tips and fees. */
+  settledTotal(billId: string): Promise<number>;
 };
 
 export type BillError =
@@ -207,20 +272,24 @@ export function createBillService(deps: {
   store: BillStore;
   students: StudentDirectory;
   files: DocumentFiles;
+  ledger: FundingLedger;
   messages: { sendText(phone: string, text: string): Promise<void> };
   tokenSecret: string;
   baseUrl: string;
   now?: () => Date;
   log?: (message: string) => void;
 }) {
-  const { store, students, files, messages, tokenSecret, baseUrl } = deps;
+  const { store, students, files, ledger, messages, tokenSecret, baseUrl } = deps;
   const now = deps.now ?? (() => new Date());
   const log = deps.log ?? console.error;
 
-  /** Donations will have moved a bill on from any status that gets checked here. */
-  const contextFor = (bill: BillRecord, confirmedCents = bill.confirmedCents) => ({
+  const contextFor = (
+    bill: BillRecord,
+    confirmedCents = bill.confirmedCents,
+    settledCents = bill.raisedCents,
+  ) => ({
     confirmedCents,
-    settledCents: 0,
+    settledCents,
     hasPayoutProof: false,
     dueDate: bill.dueDate,
     now: now(),
@@ -262,7 +331,141 @@ export function createBillService(deps: {
       : fail("CANNOT_CHANGE");
   }
 
+  async function toPublic(bills: BillRecord[]): Promise<PublicBill[]> {
+    const shown = bills.filter(
+      (bill) => isPublicStatus(bill.status) && bill.confirmedCents !== null,
+    );
+    if (shown.length === 0) return [];
+    const people = new Map(
+      (await students.findStudents([...new Set(shown.map((b) => b.studentId))])).map(
+        (student) => [student.id, student],
+      ),
+    );
+    return shown.flatMap((bill) => {
+      const student = people.get(bill.studentId);
+      if (!student || !isPublicStatus(bill.status) || bill.confirmedCents === null) {
+        return [];
+      }
+      return [
+        {
+          id: bill.id,
+          schoolId: bill.billerId,
+          schoolName: bill.billerName,
+          schoolType: bill.billerType,
+          city: bill.billerCity,
+          term: bill.term,
+          studentInitials: initialsOf(student.firstName, student.lastName),
+          studentLevel: student.level,
+          confirmedCents: bill.confirmedCents,
+          raisedCents: bill.raisedCents,
+          dueDate: bill.dueDate,
+          status: bill.status,
+          createdAt: bill.createdAt,
+          confirmedAt: bill.confirmedAt,
+          fundedAt: bill.fundedAt,
+        },
+      ];
+    });
+  }
+
+  async function findPublic(billId: string): Promise<PublicBill | null> {
+    const bill = await store.find(billId);
+    return bill ? ((await toPublic([bill]))[0] ?? null) : null;
+  }
+
   return {
+    // ------------------------------------------------------------ public views
+
+    /** Bills open for donations, for the public feed. */
+    async listOpen(filter: FeedFilter): Promise<PublicBill[]> {
+      const bills = await store.listByStatus(["SCHOOL_CONFIRMED", "PARTIALLY_FUNDED"]);
+      return applyFeedFilter(await toPublic(bills), filter, now());
+    },
+
+    /** Null unless the school has confirmed the bill, so nothing unconfirmed leaks. */
+    findPublic,
+
+    async findPublicMany(billIds: readonly string[]): Promise<PublicBill[]> {
+      if (billIds.length === 0) return [];
+      return toPublic(await store.findMany(billIds));
+    },
+
+    listVerifiedSchools: () => store.listVerifiedSchools(),
+
+    stats: () => store.stats(PUBLIC_STATUSES),
+
+    // ---------------------------------------------------------------- funding
+
+    /** What payments checks a donation against. Null if the bill isn't public. */
+    async fundingFor(billId: string) {
+      const bill = await findPublic(billId);
+      if (!bill) return null;
+      return {
+        id: bill.id,
+        schoolName: bill.schoolName,
+        term: bill.term,
+        confirmedCents: bill.confirmedCents,
+        raisedCents: bill.raisedCents,
+        isOpen: isOpenForDonations(bill, now()),
+      };
+    },
+
+    /**
+     * Brings the bill in line with the payments ledger: its raised total, and its
+     * funding status where the status rules allow. Safe to call any number of
+     * times, from any number of places at once.
+     */
+    async syncFunding(billId: string): Promise<FundingSync> {
+      const result = await store.updateFunding(billId, async (bill) => {
+        const settled = await ledger.settledTotal(billId);
+        const isFundingStage =
+          bill.status === "SCHOOL_CONFIRMED" ||
+          bill.status === "PARTIALLY_FUNDED" ||
+          bill.status === "FUNDED";
+        if (!isFundingStage || bill.confirmedCents === null) {
+          return { raisedCents: settled, status: bill.status, fundedAt: bill.fundedAt };
+        }
+
+        const target = fundingPosition(bill.confirmedCents, settled).status;
+        const allowed =
+          target === bill.status ||
+          checkTransition(
+            bill.status,
+            target,
+            "SYSTEM",
+            contextFor(bill, bill.confirmedCents, settled),
+          ).ok;
+        const status = allowed ? target : bill.status;
+        return {
+          raisedCents: settled,
+          status,
+          fundedAt: status === "FUNDED" ? (bill.fundedAt ?? now()) : null,
+        };
+      });
+      if (!result) return { ok: false, error: "NOT_FOUND" };
+
+      const { before, after } = result;
+      // Money on a bill that closed without reaching the school must all go back.
+      const isClosed =
+        after.status === "REJECTED" ||
+        after.status === "CANCELLED" ||
+        after.status === "EXPIRED";
+      const surplusCents = isClosed
+        ? after.raisedCents
+        : Math.max(after.raisedCents - (before.confirmedCents ?? 0), 0);
+      if (surplusCents > 0) {
+        log(`Bill ${billId}: ${surplusCents} cents received beyond what it can take`);
+      }
+      return {
+        ok: true,
+        status: after.status,
+        raisedCents: after.raisedCents,
+        surplusCents,
+      };
+    },
+
+    // ----------------------------------------------------------------- owners
+
     async schoolsFor(owner: BillOwner): Promise<SchoolOption[]> {
       const types = schoolTypesFor(owner.role);
       const schools = await store.listVerifiedSchools();

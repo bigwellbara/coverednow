@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { REJECTED_BY_SCHOOL_REASON } from "../domain/bill";
+import { DEFAULT_FEED_FILTER } from "../domain/public-bill";
 import { CONFIRMATION_TTL_MS, signConfirmationToken } from "../domain/confirmation-token";
 import {
   createBillService,
@@ -77,9 +78,13 @@ function setup() {
         id,
         billerName: school(bill.billerId).name,
         billerType: school(bill.billerId).type,
+        billerCity: school(bill.billerId).city,
         confirmedCents: null,
+        raisedCents: 0,
         closedReason: null,
         createdAt: clock,
+        confirmedAt: null,
+        fundedAt: null,
       });
       events.push("bill.submitted");
       return { id };
@@ -87,6 +92,18 @@ function setup() {
     find: async (id) => bills.get(id) ?? null,
     listForOwner: async (ownerId) => [...bills.values()].filter((b) => b.ownerId === ownerId),
     listAll: async () => [...bills.values()],
+    listByStatus: async (statuses) => [...bills.values()].filter((b) => statuses.includes(b.status)),
+    findMany: async (wanted) => [...bills.values()].filter((b) => wanted.includes(b.id)),
+    updateFunding: async (id, decide) => {
+      const bill = bills.get(id);
+      if (!bill) return null;
+      const before = { ...bill };
+      const after = await decide(before);
+      Object.assign(bill, after);
+      events.push(`funding:${after.status}:${after.raisedCents}`);
+      return { before, after };
+    },
+    stats: async () => ({ raisedCents: 0, studentsSupported: 0, verifiedSchools: 0 }),
     close: async (id, from, to, actorId, reason) => {
       const bill = bills.get(id);
       if (bill?.status !== from) return false;
@@ -142,6 +159,7 @@ function setup() {
       bill.status = r.billStatus;
       bill.confirmedCents = r.confirmedCents;
       bill.closedReason = r.closedReason;
+      bill.confirmedAt = r.billStatus === "SCHOOL_CONFIRMED" ? r.at : null;
       events.push(`confirmation.${r.status}:${r.contactId}`);
       return true;
     },
@@ -150,13 +168,17 @@ function setup() {
     },
   };
   let raceOnCreate = false;
+  const ledger = new Map<string, number>();
 
   const service = createBillService({
     store,
     students: {
       findForOwner: async (ownerId) => directory.get(ownerId) ?? null,
       findStudent: async () => ({ firstName: "Test", lastName: "Learner", level: "Year 2" }),
+      findStudents: async (studentIds) =>
+        studentIds.map((id) => ({ id, firstName: "Tendai", lastName: "Moyo", level: "Year 2" })),
     },
+    ledger: { settledTotal: async (billId) => ledger.get(billId) ?? 0 },
     files: {
       put: async (bytes) => {
         const key = `key-${(ids += 1)}`;
@@ -181,7 +203,7 @@ function setup() {
   });
 
   return {
-    service, bills, confirmations, objects, messages, events, logs, directory, schools, contacts,
+    service, bills, ledger, confirmations, objects, messages, events, logs, directory, schools, contacts,
     advance: (ms: number) => { clock = new Date(clock.getTime() + ms); },
     failSendsTo: (phone: string | null) => { sendFailsFor = phone; },
     raceOnCreate: () => { raceOnCreate = true; },
@@ -620,6 +642,138 @@ describe("bill service", () => {
     it("get nothing for an unknown bill", async () => {
       expect(await t.service.readStatementForAdmin("nope", "admin-1")).toBeNull();
       expect(await t.service.findForAdmin("nope")).toBeNull();
+    });
+  });
+
+  describe("public views", () => {
+    const confirmed = async () => {
+      const { billId, token } = await submitted();
+      await t.service.respond(token, { decision: "CONFIRM" });
+      return billId;
+    };
+
+    it("hide a bill until the school confirms it", async () => {
+      const { billId } = await submitted();
+
+      expect(await t.service.findPublic(billId)).toBeNull();
+      expect(await t.service.listOpen(DEFAULT_FEED_FILTER)).toEqual([]);
+      expect(await t.service.fundingFor(billId)).toBeNull();
+    });
+
+    it("show initials, never the surname or reg number", async () => {
+      const billId = await confirmed();
+
+      const bill = await t.service.findPublic(billId);
+
+      expect(bill).toMatchObject({
+        id: billId,
+        schoolName: "Test University",
+        studentInitials: "T. M.",
+        confirmedCents: 20_000,
+        raisedCents: 0,
+        confirmedAt: START,
+      });
+      expect(JSON.stringify(bill)).not.toMatch(/Moyo|H150123A|key-/);
+    });
+
+    it("list only bills still open for donations", async () => {
+      const billId = await confirmed();
+      expect((await t.service.listOpen(DEFAULT_FEED_FILTER)).map((b) => b.id)).toEqual([billId]);
+
+      t.advance(31 * 24 * 60 * 60 * 1000);
+
+      expect(await t.service.listOpen(DEFAULT_FEED_FILTER)).toEqual([]);
+      expect((await t.service.fundingFor(billId))?.isOpen).toBe(false);
+    });
+  });
+
+  describe("funding", () => {
+    const confirmed = async () => {
+      const { billId, token } = await submitted();
+      await t.service.respond(token, { decision: "CONFIRM" });
+      return billId;
+    };
+
+    it("moves to partly funded, then funded, from the ledger total", async () => {
+      const billId = await confirmed();
+
+      t.ledger.set(billId, 5_000);
+      expect(await t.service.syncFunding(billId)).toEqual({
+        ok: true,
+        status: "PARTIALLY_FUNDED",
+        raisedCents: 5_000,
+        surplusCents: 0,
+      });
+
+      t.ledger.set(billId, 20_000);
+      await t.service.syncFunding(billId);
+      const bill = t.bills.get(billId)!;
+      expect(bill.status).toBe("FUNDED");
+      expect(bill.fundedAt).toEqual(START);
+    });
+
+    it("is safe to repeat", async () => {
+      const billId = await confirmed();
+      t.ledger.set(billId, 20_000);
+
+      await t.service.syncFunding(billId);
+      t.advance(60_000);
+      await t.service.syncFunding(billId);
+
+      expect(t.bills.get(billId)).toMatchObject({ status: "FUNDED", fundedAt: START });
+    });
+
+    it("goes back when a donation is refunded", async () => {
+      const billId = await confirmed();
+      t.ledger.set(billId, 20_000);
+      await t.service.syncFunding(billId);
+
+      t.ledger.set(billId, 0);
+      await t.service.syncFunding(billId);
+
+      expect(t.bills.get(billId)).toMatchObject({
+        status: "SCHOOL_CONFIRMED",
+        raisedCents: 0,
+        fundedAt: null,
+      });
+    });
+
+    it("reports money beyond the confirmed amount", async () => {
+      const billId = await confirmed();
+      t.ledger.set(billId, 23_000);
+
+      expect(await t.service.syncFunding(billId)).toMatchObject({
+        status: "FUNDED",
+        surplusCents: 3_000,
+      });
+      expect(t.logs.some((line) => line.includes("3000 cents"))).toBe(true);
+    });
+
+    it("records money on a withdrawn bill as all to be returned", async () => {
+      const billId = await confirmed();
+      await t.service.withdraw(STUDENT.id, billId);
+      t.ledger.set(billId, 5_000);
+
+      expect(await t.service.syncFunding(billId)).toMatchObject({
+        status: "CANCELLED",
+        raisedCents: 5_000,
+        surplusCents: 5_000,
+      });
+    });
+
+    it("stops an owner withdrawing a bill that holds money", async () => {
+      const billId = await confirmed();
+      t.ledger.set(billId, 5_000);
+      await t.service.syncFunding(billId);
+
+      expect(await t.service.withdraw(STUDENT.id, billId)).toEqual({
+        ok: false,
+        error: "CANNOT_CHANGE",
+      });
+    });
+
+    it("refuses an unknown bill", async () => {
+      expect(await t.service.syncFunding("nope")).toEqual({ ok: false, error: "NOT_FOUND" });
     });
   });
 });

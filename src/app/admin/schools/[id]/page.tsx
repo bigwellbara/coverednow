@@ -28,7 +28,7 @@ export default async function SchoolPage({
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <Link
         href="/admin/schools"
-        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-emerald-800"
+        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
       >
         <ArrowLeft className="size-4" aria-hidden />
         Back to schools
@@ -39,7 +39,7 @@ export default async function SchoolPage({
         <h2 id="status-heading" className="flex items-center gap-2 font-semibold">
           {school.verified ? (
             <>
-              <CircleCheck className="size-5 text-emerald-700" aria-hidden />
+              <CircleCheck className="size-5 text-brand-700" aria-hidden />
               Verified
             </>
           ) : (
@@ -96,7 +96,7 @@ export default async function SchoolPage({
                     {contact.email ? `, ${contact.email}` : ""}
                   </p>
                   {contact.verifiedAt ? (
-                    <p className="mt-1 flex items-start gap-1 text-sm text-emerald-800">
+                    <p className="mt-1 flex items-start gap-1 text-sm text-brand-800">
                       <CircleCheck
                         className="mt-0.5 size-4 shrink-0"
                         aria-hidden

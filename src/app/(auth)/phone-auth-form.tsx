@@ -14,14 +14,29 @@ const SIGN_IN_ERRORS: Record<string, string> = {
     "There's no account for this address yet. Please sign up first, or use the other way you signed up.",
 };
 
-export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
+const ROLE_CHOICES = [
+  { value: "DONOR", label: "I want to help pay school fees" },
+  { value: "STUDENT", label: "A university or college student" },
+  { value: "GUARDIAN", label: "A parent or guardian of a high school student" },
+] as const;
+
+export function PhoneAuthForm({
+  mode,
+  next,
+  defaultRole = "STUDENT",
+}: {
+  mode: "sign-up" | "sign-in";
+  /** A path already checked to be on this site. */
+  next: string | null;
+  defaultRole?: "STUDENT" | "GUARDIAN" | "DONOR";
+}) {
   const isSignUp = mode === "sign-up";
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const [step, setStep] = useState<"details" | "code">("details");
   const [name, setName] = useState("");
-  const [role, setRole] = useState("STUDENT");
+  const [role, setRole] = useState<string>(defaultRole);
   const [method, setMethod] = useState<AddressMethod>("WHATSAPP");
   const [address, setAddress] = useState("");
   const [code, setCode] = useState("");
@@ -65,7 +80,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
         );
         return;
       }
-      router.replace("/onboarding");
+      router.replace(next ?? "/dashboard");
       router.refresh();
     });
 
@@ -84,28 +99,22 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
               <fieldset>
                 <legend className="field-label">Who is signing up?</legend>
                 <div className="space-y-2">
-                  <label className="flex min-h-11 items-start gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="STUDENT"
-                      checked={role === "STUDENT"}
-                      onChange={() => setRole("STUDENT")}
-                      className="mt-1"
-                    />
-                    <span>A university or college student</span>
-                  </label>
-                  <label className="flex min-h-11 items-start gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="GUARDIAN"
-                      checked={role === "GUARDIAN"}
-                      onChange={() => setRole("GUARDIAN")}
-                      className="mt-1"
-                    />
-                    <span>A parent or guardian of a high school student</span>
-                  </label>
+                  {ROLE_CHOICES.map((choice) => (
+                    <label
+                      key={choice.value}
+                      className="flex min-h-11 items-start gap-2 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name="role"
+                        value={choice.value}
+                        checked={role === choice.value}
+                        onChange={() => setRole(choice.value)}
+                        className="mt-1 accent-brand-700"
+                      />
+                      <span>{choice.label}</span>
+                    </label>
+                  ))}
                 </div>
               </fieldset>
               <div>
@@ -171,7 +180,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
         <div className="flex justify-between gap-3 text-sm">
           <button
             type="button"
-            className="min-h-11 font-medium text-emerald-800 underline"
+            className="min-h-11 font-medium text-brand-800 underline"
             onClick={() => {
               setError(null);
               setNotice(null);
@@ -183,7 +192,7 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
           <button
             type="button"
             disabled={isPending}
-            className="min-h-11 font-medium text-emerald-800 underline"
+            className="min-h-11 font-medium text-brand-800 underline"
             onClick={sendCode}
           >
             Send a new code
@@ -194,8 +203,10 @@ export function PhoneAuthForm({ mode }: { mode: "sign-up" | "sign-in" }) {
       <p className="text-center text-sm text-slate-600">
         {isSignUp ? "Already have an account? " : "New to CoveredNow? "}
         <Link
-          href={isSignUp ? "/sign-in" : "/sign-up"}
-          className="font-medium text-emerald-800 underline"
+          href={`${isSignUp ? "/sign-in" : "/sign-up"}${
+            next ? `?next=${encodeURIComponent(next)}${isSignUp ? "" : "&as=donor"}` : ""
+          }`}
+          className="font-medium text-brand-800 underline"
         >
           {isSignUp ? "Sign in" : "Sign up"}
         </Link>
