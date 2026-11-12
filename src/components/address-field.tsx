@@ -1,5 +1,7 @@
 "use client";
 
+import { Mail, MessageCircle } from "lucide-react";
+
 export type AddressMethod = "WHATSAPP" | "EMAIL";
 
 /** Lets someone choose WhatsApp or email, then enter that number or address. */
@@ -10,25 +12,31 @@ export function AddressField(props: {
   onAddressChange: (address: string) => void;
 }) {
   const { method } = props;
-  const options: Array<{ value: AddressMethod; label: string }> = [
-    { value: "WHATSAPP", label: "WhatsApp" },
-    { value: "EMAIL", label: "Email" },
-  ];
+  const options = [
+    { value: "WHATSAPP", label: "WhatsApp", icon: MessageCircle },
+    { value: "EMAIL", label: "Email", icon: Mail },
+  ] as const;
 
   return (
     <>
       <fieldset>
         <legend className="field-label">Send my code by</legend>
-        <div className="flex gap-5">
+        {/* A two-way toggle; the radios stay in the page for keyboards and screen readers. */}
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
           {options.map((option) => (
-            <label key={option.value} className="flex min-h-11 items-center gap-2 text-sm">
+            <label
+              key={option.value}
+              className="flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg text-sm font-semibold text-slate-600 transition hover:text-slate-900 has-checked:bg-white has-checked:text-brand-800 has-checked:shadow-sm has-focus-visible:ring-2 has-focus-visible:ring-brand-700/40"
+            >
               <input
                 type="radio"
                 name="method"
                 value={option.value}
                 checked={method === option.value}
                 onChange={() => props.onMethodChange(option.value)}
+                className="sr-only"
               />
+              <option.icon className="size-4" aria-hidden />
               {option.label}
             </label>
           ))}

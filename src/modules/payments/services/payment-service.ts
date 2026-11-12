@@ -39,9 +39,15 @@ export type NewDonation = Pick<
   | "visibility"
   | "displayName"
   | "reference"
->;
+> & {
+  /** The campaign the gift was made through, already checked as open. */
+  campaignId: string | null;
+};
 
 export type Supporter = { displayName: string | null; amountCents: number; settledAt: Date };
+
+/** A settled gift, with only what bill pages already show publicly. */
+export type RecentGift = Supporter & { billId: string };
 
 export type DonorSummary = {
   givenCents: number;
@@ -72,6 +78,10 @@ export type DonationStore = {
   listRecent(limit: number): Promise<DonationRecord[]>;
   listSupporters(billId: string, limit: number): Promise<Supporter[]>;
   countSupporters(billId: string): Promise<number>;
+  /** The latest settled gifts across all bills, newest first. */
+  listRecentGifts(limit: number): Promise<RecentGift[]>;
+  /** Settled gifts since a moment, for the site's daily figures. */
+  settledSince(since: Date): Promise<{ amountCents: number; gifts: number }>;
   donorSummary(donorId: string): Promise<DonorSummary>;
   countDonors(): Promise<number>;
   pendingFundingEvents(limit: number): Promise<Array<{ id: string; billId: string }>>;
@@ -203,6 +213,7 @@ export function createPaymentService(deps: {
         tipPercent: number;
         visibility: Visibility;
         alias: string;
+        campaignId?: string | null;
       },
     ): Promise<CheckoutResult> {
       const bill = await bills.fundingFor(input.billId);
@@ -234,6 +245,7 @@ export function createPaymentService(deps: {
         visibility: input.visibility,
         displayName,
         reference,
+        campaignId: input.campaignId ?? null,
       });
 
       try {
@@ -316,6 +328,20 @@ export function createPaymentService(deps: {
     listRecent: (limit = 200) => store.listRecent(limit),
     listSupporters: (billId: string, limit = 20) => store.listSupporters(billId, limit),
     countSupporters: (billId: string) => store.countSupporters(billId),
+    listRecentGifts: (limit = 8) => store.listRecentGifts(limit),
+
+    /** A settled gift's public side, for a page the donor shares. Null otherwise. */
+    async findPublicGift(id: string): Promise<RecentGift | null> {
+      const donation = await store.findById(id);
+      if (donation?.status !== "SETTLED" || !donation.settledAt) return null;
+      return {
+        billId: donation.billId,
+        displayName: donation.displayName,
+        amountCents: donation.amountCents,
+        settledAt: donation.settledAt,
+      };
+    },
+    settledSince: (since: Date) => store.settledSince(since),
     countDonors: () => store.countDonors(),
   };
 }

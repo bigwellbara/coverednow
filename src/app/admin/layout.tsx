@@ -1,30 +1,26 @@
-import Link from "next/link";
+import { LayoutDashboard } from "lucide-react";
 import type { ReactNode } from "react";
 import { requireAdmin } from "@/modules/identity/adapters/session";
+import { AdminNav } from "./admin-nav";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   await requireAdmin();
-  const linkClass =
-    "inline-flex min-h-11 items-center font-medium text-slate-700 hover:text-brand-800";
 
   return (
     <>
-      <nav aria-label="Admin" className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl gap-5 overflow-x-auto px-4 text-sm">
-          <Link href="/admin/verifications" className={linkClass}>
-            Verifications
-          </Link>
-          <Link href="/admin/schools" className={linkClass}>
-            Schools
-          </Link>
-          <Link href="/admin/bills" className={linkClass}>
-            Bills
-          </Link>
-          <Link href="/admin/donations" className={linkClass}>
-            Donations
-          </Link>
+      <div className="relative isolate overflow-hidden bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950">
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] [background-size:20px_20px]"
+        />
+        <div className="mx-auto max-w-5xl px-4 pt-5">
+          <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold tracking-wider text-gold-300 uppercase">
+            <LayoutDashboard className="size-4" aria-hidden />
+            Admin
+          </p>
+          <AdminNav />
         </div>
-      </nav>
+      </div>
       {children}
     </>
   );

@@ -82,6 +82,8 @@ function setup() {
     listRecent: async () => [...donations.values()],
     listSupporters: async () => [],
     countSupporters: async () => 0,
+    listRecentGifts: async () => [],
+    settledSince: async () => ({ amountCents: 0, gifts: 0 }),
     donorSummary: async () => ({ givenCents: 0, donations: 0, billsSupported: 0 }),
     countDonors: async () => 0,
     pendingFundingEvents: async () =>

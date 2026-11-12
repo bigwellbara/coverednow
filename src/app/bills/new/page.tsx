@@ -1,10 +1,19 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Landmark, School, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/empty-state";
+import { PageHero } from "@/components/page-hero";
+import { delay, stagger } from "@/lib/motion";
 import { getBillService } from "@/modules/billing";
 import { termOptions } from "@/modules/billing/domain/bill";
 import { requireApplicant } from "@/modules/identity/adapters/session";
 import { NewBillForm } from "../forms";
+
+const WHAT_HAPPENS = [
+  { icon: School, text: "We ask the school's bursar to confirm the amount." },
+  { icon: ShieldCheck, text: "Donors only ever see the amount the school confirms." },
+  { icon: Landmark, text: "Any money raised is paid straight to the school." },
+];
 
 export default async function NewBillPage() {
   const owner = await requireApplicant();
@@ -15,27 +24,43 @@ export default async function NewBillPage() {
   const now = new Date();
 
   return (
-    <>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <Link
-          href="/bills"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Back to bills
-        </Link>
-        <h1 className="text-2xl font-bold">Submit a fee bill</h1>
-        <p className="text-slate-600">
-          We&apos;ll ask the school to confirm the amount. Donors only ever see the
-          amount the school confirms, and any money goes straight to the school.
-        </p>
+    <main>
+      <PageHero
+        width="3xl"
+        eyebrow={
+          <Link
+            href="/bills"
+            className="inline-flex min-h-11 items-center gap-1 tracking-normal text-brand-100 normal-case hover:text-white"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Back to bills
+          </Link>
+        }
+        title="Submit a fee bill"
+      >
+        <ul className="grid gap-3 sm:grid-cols-3">
+          {WHAT_HAPPENS.map((item, index) => (
+            <li
+              key={item.text}
+              className="fade-up flex items-start gap-3 rounded-2xl bg-white/10 p-3 text-sm text-brand-50 ring-1 ring-white/15 backdrop-blur"
+              style={stagger(index, 100, 350)}
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg metal-champagne">
+                <item.icon className="size-4" aria-hidden />
+              </span>
+              {item.text}
+            </li>
+          ))}
+        </ul>
+      </PageHero>
 
-        <section className="card">
-          {schools.length === 0 ? (
-            <p className="text-slate-600">
-              No schools are available for your account yet. Please check back soon.
-            </p>
-          ) : (
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        {schools.length === 0 ? (
+          <EmptyState icon={School} title="No schools available yet">
+            No schools are available for your account yet. Please check back soon.
+          </EmptyState>
+        ) : (
+          <section className="fade-up card p-6" style={delay(500)}>
             <NewBillForm
               schools={schools.map((school) => ({
                 id: school.id,
@@ -49,9 +74,9 @@ export default async function NewBillPage() {
                   : "Your reg number"
               }
             />
-          )}
-        </section>
-      </main>
-    </>
+          </section>
+        )}
+      </div>
+    </main>
   );
 }

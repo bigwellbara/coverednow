@@ -37,6 +37,11 @@ export function getBillService(): BillService {
     messages: createMessageSender(),
     tokenSecret: requireEnv("CONFIRMATION_TOKEN_SECRET"),
     baseUrl: requireEnv("NEXTAUTH_URL").replace(/\/$/, ""),
+    // Loaded when needed, as engagement itself depends on this module.
+    onFunded: async (bill) => {
+      const { getEngagementService } = await import("@/modules/engagement");
+      await getEngagementService().billFunded(bill);
+    },
   }));
 }
 

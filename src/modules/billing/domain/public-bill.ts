@@ -53,6 +53,47 @@ export function remainingCents(bill: Pick<PublicBill, "confirmedCents" | "raised
   return Math.max(bill.confirmedCents - bill.raisedCents, 0);
 }
 
+/** The calendar day in Zimbabwe, as YYYY-MM-DD, whatever the server's own zone. */
+export function harareDay(now: Date): string {
+  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Harare" });
+}
+
+/**
+ * One open bill to feature for the whole day. Every visitor sees the same one,
+ * and it moves on to the next bill at midnight in Harare.
+ */
+export function billOfTheDay<T extends Pick<PublicBill, "id">>(
+  bills: readonly T[],
+  now: Date,
+): T | null {
+  if (bills.length === 0) return null;
+  const sorted = [...bills].sort((a, b) => a.id.localeCompare(b.id));
+  const dayNumber = Math.floor(Date.parse(harareDay(now)) / 86_400_000);
+  return sorted[dayNumber % sorted.length] ?? null;
+}
+
+export type NeedSummary = {
+  openBills: number;
+  schools: number;
+  /** What it would take to clear every one of these bills. */
+  remainingCents: number;
+  /** The average still needed per bill, rounded to the cent. Zero with no bills. */
+  averageCents: number;
+};
+
+/** The total still needed across open bills, as shown to large donors. */
+export function summariseNeed(
+  bills: readonly Pick<PublicBill, "schoolId" | "confirmedCents" | "raisedCents">[],
+): NeedSummary {
+  const total = bills.reduce((sum, bill) => sum + remainingCents(bill), 0);
+  return {
+    openBills: bills.length,
+    schools: new Set(bills.map((bill) => bill.schoolId)).size,
+    remainingCents: total,
+    averageCents: bills.length === 0 ? 0 : Math.round(total / bills.length),
+  };
+}
+
 /** Rounded down, so a bill never reads 100% until it is fully funded. */
 export function percentFunded(
   bill: Pick<PublicBill, "confirmedCents" | "raisedCents">,

@@ -1,6 +1,6 @@
-import { ArrowLeft, FileText } from "lucide-react";
-import Link from "next/link";
+import { FileText, UserCheck } from "lucide-react";
 import { notFound } from "next/navigation";
+import { AdminHeader } from "../../admin-header";
 import { getVerificationService } from "@/modules/identity";
 import { requireAdmin } from "@/modules/identity/adapters/session";
 import { DOCUMENT_KIND_LABELS } from "@/modules/identity/domain/verification";
@@ -20,15 +20,13 @@ export default async function VerificationReviewPage({
 
   return (
     <>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <Link
-          href="/admin/verifications"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Back to queue
-        </Link>
-        <h1 className="text-2xl font-bold">{item.applicantName}</h1>
+      <main className="stagger-children mx-auto max-w-3xl space-y-6 px-4 py-8">
+        <AdminHeader
+          back={{ href: "/admin/verifications", label: "Back to queue" }}
+          icon={<UserCheck className="size-5" aria-hidden />}
+          title={item.applicantName}
+          meta={item.applicantRole === "GUARDIAN" ? "Guardian" : "Student"}
+        />
 
         <section className="card">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">

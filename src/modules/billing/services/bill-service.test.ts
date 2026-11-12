@@ -169,6 +169,8 @@ function setup() {
   };
   let raceOnCreate = false;
   const ledger = new Map<string, number>();
+  const funded: Array<{ id: string; ownerId: string }> = [];
+  let fundedHookFails = false;
 
   const service = createBillService({
     store,
@@ -200,10 +202,15 @@ function setup() {
     baseUrl: "https://app.test",
     now: () => clock,
     log: (message) => logs.push(message),
+    onFunded: async (bill) => {
+      if (fundedHookFails) throw new Error("messaging is down");
+      funded.push(bill);
+    },
   });
 
   return {
-    service, bills, ledger, confirmations, objects, messages, events, logs, directory, schools, contacts,
+    service, bills, ledger, confirmations, objects, messages, events, logs, directory, schools, contacts, funded,
+    failFundedHook: () => { fundedHookFails = true; },
     advance: (ms: number) => { clock = new Date(clock.getTime() + ms); },
     failSendsTo: (phone: string | null) => { sendFailsFor = phone; },
     raceOnCreate: () => { raceOnCreate = true; },
@@ -710,6 +717,29 @@ describe("bill service", () => {
       const bill = t.bills.get(billId)!;
       expect(bill.status).toBe("FUNDED");
       expect(bill.fundedAt).toEqual(START);
+    });
+
+    it("tells people once, when the bill first becomes fully funded", async () => {
+      const billId = await confirmed();
+
+      t.ledger.set(billId, 5_000);
+      await t.service.syncFunding(billId);
+      expect(t.funded).toEqual([]);
+
+      t.ledger.set(billId, 20_000);
+      await t.service.syncFunding(billId);
+      await t.service.syncFunding(billId);
+      expect(t.funded).toEqual([{ id: billId, ownerId: STUDENT.id }]);
+    });
+
+    it("stays funded when telling people fails", async () => {
+      const billId = await confirmed();
+      t.failFundedHook();
+      t.ledger.set(billId, 20_000);
+
+      expect(await t.service.syncFunding(billId)).toMatchObject({ ok: true, status: "FUNDED" });
+      expect(t.bills.get(billId)!.status).toBe("FUNDED");
+      expect(t.logs.at(-1)).toMatch(/funded, but telling people failed/);
     });
 
     it("is safe to repeat", async () => {

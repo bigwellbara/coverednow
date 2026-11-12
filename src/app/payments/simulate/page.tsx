@@ -1,5 +1,6 @@
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, Lock } from "lucide-react";
 import { notFound } from "next/navigation";
+import { delay } from "@/lib/motion";
 import { formatMoney } from "@/modules/billing/domain/money";
 import { requireUser } from "@/modules/identity/adapters/session";
 import { getPaymentService } from "@/modules/payments";
@@ -19,8 +20,8 @@ export default async function SimulatePaymentPage({
   if (donation?.donorId !== user.id) notFound();
 
   return (
-    <main className="mx-auto max-w-md space-y-6 px-4 py-10">
-      <div className="flex gap-3 rounded-2xl border-2 border-dashed border-gold-500 bg-gold-50 p-4 text-gold-900">
+    <main className="mx-auto max-w-md space-y-6 px-4 py-12">
+      <div className="fade-up flex gap-3 rounded-2xl border-2 border-dashed border-gold-500 bg-gold-50 p-4 text-gold-900">
         <FlaskConical className="size-6 shrink-0" aria-hidden />
         <p className="text-sm">
           <strong>Test payment.</strong> Paynow isn&apos;t set up, so this page stands in
@@ -28,12 +29,20 @@ export default async function SimulatePaymentPage({
         </p>
       </div>
 
-      <section className="card space-y-4 text-center">
-        <p className="text-sm text-slate-600">Reference {donation.reference}</p>
-        <p className="text-4xl font-bold text-brand-900">{formatMoney(donation.totalCents)}</p>
-        <form action={simulatePaymentAction} className="grid gap-3">
+      <section
+        className="fade-up card space-y-5 overflow-hidden p-0 text-center shadow-xl shadow-brand-950/10"
+        style={delay(120)}
+      >
+        <div className="bg-gradient-to-br from-brand-700 to-brand-950 px-6 py-8 text-white">
+          <p className="text-sm text-brand-100">Reference {donation.reference}</p>
+          <p className="pop-in mt-2 text-5xl font-semibold tracking-tight" style={delay(250)}>
+            {formatMoney(donation.totalCents)}
+          </p>
+        </div>
+        <form action={simulatePaymentAction} className="grid gap-3 px-6 pb-6">
           <input type="hidden" name="reference" value={donation.reference} />
-          <button type="submit" name="outcome" value="PAID" className="btn-primary">
+          <button type="submit" name="outcome" value="PAID" className="btn-primary py-3">
+            <Lock className="size-4" aria-hidden />
             Pay (simulated)
           </button>
           <button type="submit" name="outcome" value="FAILED" className="btn-secondary">

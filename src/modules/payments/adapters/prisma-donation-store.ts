@@ -90,6 +90,7 @@ export const prismaDonationStore: DonationStore = {
           visibility: donation.visibility,
           displayName: donation.displayName,
           gatewayRef: donation.reference,
+          campaignId: donation.campaignId,
         },
         select: { id: true },
       });
@@ -184,6 +185,33 @@ export const prismaDonationStore: DonationStore = {
 
   countSupporters: (billId) =>
     db.donation.count({ where: { billId, status: "SETTLED" } }),
+
+  listRecentGifts: async (limit) => {
+    const rows = await db.donation.findMany({
+      where: { status: "SETTLED" },
+      orderBy: { settledAt: "desc" },
+      take: limit,
+      select: { billId: true, displayName: true, amount: true, settledAt: true },
+    });
+    return rows.map((row) => ({
+      billId: row.billId,
+      displayName: row.displayName,
+      amountCents: cents(row.amount),
+      settledAt: row.settledAt!,
+    }));
+  },
+
+  settledSince: async (since) => {
+    const result = await db.donation.aggregate({
+      where: { status: "SETTLED", settledAt: { gte: since } },
+      _sum: { amount: true },
+      _count: true,
+    });
+    return {
+      amountCents: result._sum.amount === null ? 0 : cents(result._sum.amount),
+      gifts: result._count,
+    };
+  },
 
   donorSummary: async (donorId) => {
     const where = { donorId, status: "SETTLED" as const };

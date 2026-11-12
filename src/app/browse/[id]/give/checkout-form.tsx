@@ -1,7 +1,9 @@
 "use client";
 
-import { EyeOff, Lock, UserRound, VenetianMask } from "lucide-react";
+import { EyeOff, LoaderCircle, Lock, UserRound, VenetianMask } from "lucide-react";
 import { useState, useTransition, type FormEvent } from "react";
+import { LocalAmount } from "@/components/local-amount";
+import type { UsdRates } from "@/lib/currencies";
 import { formatMoney, parseAmountToCents } from "@/modules/billing/domain/money";
 import {
   DEFAULT_TIP_PERCENT,
@@ -31,6 +33,10 @@ export function CheckoutForm(props: {
   feeBps: number;
   donorName: string;
   isSimulated: boolean;
+  /** Today's rates, for showing the total in the donor's own currency. */
+  rates: UsdRates | null;
+  /** The campaign to credit, if the donor came from one. */
+  campaign: string | null;
 }) {
   const { remainingCents, feeBps } = props;
   const [isPending, startTransition] = useTransition();
@@ -58,6 +64,7 @@ export function CheckoutForm(props: {
         tipPercent,
         visibility,
         alias,
+        campaign: props.campaign,
       });
       if ("error" in result) {
         setError(result.error);
@@ -80,10 +87,10 @@ export function CheckoutForm(props: {
                 type="button"
                 aria-pressed={selected}
                 onClick={() => setAmount(centsToInput(cents))}
-                className={`min-h-11 rounded-xl border px-4 font-semibold ${
+                className={`min-h-11 rounded-xl border px-4 font-semibold transition duration-200 active:scale-95 motion-reduce:active:scale-100 ${
                   selected
-                    ? "border-brand-700 bg-brand-700 text-white"
-                    : "border-slate-300 bg-white text-slate-800 hover:border-brand-700"
+                    ? "border-brand-700 bg-brand-700 text-white shadow-md shadow-brand-700/25"
+                    : "border-slate-300 bg-white text-slate-800 hover:-translate-y-0.5 hover:border-brand-700 hover:shadow-sm motion-reduce:hover:translate-y-0"
                 }`}
               >
                 {index === 0 ? `All of it (${formatMoney(cents)})` : formatMoney(cents)}
@@ -152,10 +159,10 @@ export function CheckoutForm(props: {
             return (
               <label
                 key={option}
-                className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium ${
+                className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition has-focus-visible:ring-2 has-focus-visible:ring-brand-700/40 ${
                   selected
-                    ? "border-brand-700 bg-brand-50 text-brand-900"
-                    : "border-slate-300 bg-white text-slate-700"
+                    ? "border-brand-700 bg-brand-50 text-brand-900 shadow-sm"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-brand-300"
                 }`}
               >
                 <input
@@ -199,7 +206,10 @@ export function CheckoutForm(props: {
         )}
       </fieldset>
 
-      <section aria-label="Summary" className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <section
+        aria-label="Summary"
+        className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/70 to-gold-50/60 p-4"
+      >
         <dl className="space-y-2 text-sm">
           <div className="flex justify-between gap-3">
             <dt>To the school</dt>
@@ -213,11 +223,17 @@ export function CheckoutForm(props: {
             <dt>Payment processing</dt>
             <dd>{breakdown ? formatMoney(breakdown.feeCents) : "-"}</dd>
           </div>
-          <div className="flex justify-between gap-3 border-t border-slate-200 pt-2 text-base font-bold">
+          <div className="flex justify-between gap-3 border-t border-slate-200 pt-2 text-base font-semibold">
             <dt>Total</dt>
             <dd className="text-brand-800">{breakdown ? formatMoney(breakdown.totalCents) : "-"}</dd>
           </div>
         </dl>
+        {breakdown && props.rates && (
+          <p className="mt-2 flex flex-wrap items-center justify-end gap-2 text-right">
+            <LocalAmount cents={breakdown.totalCents} rates={props.rates} picker />
+            <span className="text-xs text-slate-500">You pay in US dollars.</span>
+          </p>
+        )}
       </section>
 
       {error && (
@@ -229,9 +245,13 @@ export function CheckoutForm(props: {
       <button
         type="submit"
         disabled={!breakdown || isPending}
-        className="btn-primary w-full py-3 text-lg"
+        className="btn-primary w-full py-3 text-lg shadow-lg shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:hover:translate-y-0 motion-reduce:hover:translate-y-0"
       >
-        <Lock className="size-4" aria-hidden />
+        {isPending ? (
+          <LoaderCircle className="size-4 motion-safe:animate-spin" aria-hidden />
+        ) : (
+          <Lock className="size-4" aria-hidden />
+        )}
         {isPending
           ? "Starting secure payment..."
           : breakdown

@@ -83,17 +83,21 @@ enum UpdateStatus {
 // ---------------------------------------------------------------- identity
 
 model User {
-  id           String        @id @default(cuid())
-  role         Role
+  id            String        @id @default(cuid())
+  role          Role
   // At least one of these is required. Both are only ever stored once proven with
   // a code, so nobody can claim an address that isn't theirs.
-  phone        String?       @unique
-  email        String?       @unique
-  name         String
-  createdAt    DateTime      @default(now())
-  verification Verification?
-  donorProfile DonorProfile?
-  students     Student[]
+  phone         String?       @unique
+  email         String?       @unique
+  name          String
+  createdAt     DateTime      @default(now())
+  verification  Verification?
+  donorProfile  DonorProfile?
+  students      Student[]
+  // WhatsApp or email news about bills this person supported or owns. Sign-in
+  // codes are sent regardless.
+  notifyUpdates Boolean       @default(true)
+  campaigns     Campaign[]
 }
 
 // The person whose fees are being paid. A university student owns their own
@@ -271,9 +275,13 @@ model Donation {
   settledAt   DateTime?
   failedAt    DateTime?
   createdAt   DateTime       @default(now())
+  // The campaign this gift was made through, if any, so it counts toward its goal.
+  campaignId  String?
+  campaign    Campaign?      @relation(fields: [campaignId], references: [id])
 
   @@index([billId, status])
   @@index([donorId, createdAt])
+  @@index([campaignId, status])
 }
 
 model Payout {
@@ -342,12 +350,49 @@ model LeaderboardSnapshot {
 }
 
 model StudentUpdate {
-  id        String       @id @default(cuid())
-  billId    String
-  bill      Bill         @relation(fields: [billId], references: [id])
-  body      String
-  status    UpdateStatus @default(PENDING)
-  createdAt DateTime     @default(now())
+  id         String       @id @default(cuid())
+  billId     String
+  bill       Bill         @relation(fields: [billId], references: [id])
+  body       String
+  status     UpdateStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  // When an admin approved or rejected it. Approved notes go to the bill's donors.
+  reviewedAt DateTime?
+
+  @@index([billId, status])
+  @@index([status, createdAt])
+}
+
+enum CampaignKind {
+  CIRCLE
+  COMPANY
+  OCCASION
+}
+
+// A shared goal that people give toward together: a giving circle, a company
+// drive or a birthday fundraiser. Gifts still go to school-confirmed bills.
+model Campaign {
+  id             String       @id @default(cuid())
+  slug           String       @unique
+  ownerId        String
+  owner          User         @relation(fields: [ownerId], references: [id])
+  kind           CampaignKind
+  title          String
+  story          String
+  goalAmount     Decimal      @db.Decimal(12, 2)
+  endsAt         DateTime?
+  // A company or person who has promised to match gifts, up to a cap. Shown only
+  // once an admin has checked the promise with them.
+  matcherName    String?
+  matchCap       Decimal?     @db.Decimal(12, 2)
+  matchCheckedAt DateTime?
+  // Set by an admin to take a campaign off the site.
+  hiddenAt       DateTime?
+  donations      Donation[]
+  createdAt      DateTime     @default(now())
+
+  @@index([ownerId])
+  @@index([hiddenAt, createdAt])
 }
 
 // ------------------------------------------------------------------- audit

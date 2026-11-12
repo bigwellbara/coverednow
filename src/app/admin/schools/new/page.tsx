@@ -1,22 +1,19 @@
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { School } from "lucide-react";
 import { requireAdmin } from "@/modules/identity/adapters/session";
+import { AdminHeader } from "../../admin-header";
 import { SchoolDetailsForm } from "../forms";
 
 export default async function NewSchoolPage() {
   await requireAdmin();
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-      <Link
-        href="/admin/schools"
-        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        Back to schools
-      </Link>
-      <h1 className="text-2xl font-bold">Add a school</h1>
-      <section className="card">
+    <main className="stagger-children mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <AdminHeader
+        back={{ href: "/admin/schools", label: "Back to schools" }}
+        icon={<School className="size-5" aria-hidden />}
+        title="Add a school"
+      />
+      <section className="card p-6">
         <SchoolDetailsForm />
       </section>
     </main>

@@ -1,47 +1,88 @@
 @import "tailwindcss";
 
-/* CoveredNow brand: green #0A5C36 (brand-700) and gold #C9A227 (gold-500). Gold is
-   for accents and fills; text on white uses gold-700 or darker for contrast. */
+/* CoveredNow: graphite and champagne, in the spirit of Apple's Pro finishes.
+   "brand" is graphite, a neutral grey from mist (50) to near-black (950), used for
+   text, dark bands and primary buttons. "gold" is champagne, a soft metallic gold
+   for accents; text on white uses gold-700 or darker for contrast. "slate" is
+   redefined as the same warm neutral, so no blue-grey creeps in anywhere. */
 @theme {
-  --color-brand-50: #eef7f1;
-  --color-brand-100: #d5ecdd;
-  --color-brand-200: #acd8bd;
-  --color-brand-300: #78bd95;
-  --color-brand-400: #449f6e;
-  --color-brand-500: #228352;
-  --color-brand-600: #136b42;
-  --color-brand-700: #0a5c36;
-  --color-brand-800: #084a2c;
-  --color-brand-900: #063b24;
-  --color-brand-950: #032214;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --color-gold-50: #fcf8ea;
-  --color-gold-100: #f7edc8;
-  --color-gold-200: #eedb91;
-  --color-gold-300: #e3c45c;
-  --color-gold-400: #d7b13c;
-  --color-gold-500: #c9a227;
-  --color-gold-600: #a7831d;
-  --color-gold-700: #82641a;
-  --color-gold-800: #634c17;
-  --color-gold-900: #4a3913;
+  --color-brand-50: #f5f5f7;
+  --color-brand-100: #e8e8ed;
+  --color-brand-200: #d2d2d7;
+  --color-brand-300: #aeaeb2;
+  --color-brand-400: #8e8e93;
+  --color-brand-500: #636366;
+  --color-brand-600: #48484a;
+  --color-brand-700: #2c2c2e;
+  --color-brand-800: #1d1d1f;
+  --color-brand-900: #161617;
+  --color-brand-950: #0b0b0c;
+
+  --color-gold-50: #faf7f2;
+  --color-gold-100: #f2ebdf;
+  --color-gold-200: #e5d6bc;
+  --color-gold-300: #d6c09b;
+  --color-gold-400: #c6a97c;
+  --color-gold-500: #b49064;
+  --color-gold-600: #987752;
+  --color-gold-700: #7a5e41;
+  --color-gold-800: #5e4832;
+  --color-gold-900: #453525;
+
+  --color-slate-50: #f5f5f7;
+  --color-slate-100: #ededf0;
+  --color-slate-200: #e0e0e4;
+  --color-slate-300: #c9c9ce;
+  --color-slate-400: #a1a1a6;
+  --color-slate-500: #86868b;
+  --color-slate-600: #6e6e73;
+  --color-slate-700: #48484a;
+  --color-slate-800: #2c2c2e;
+  --color-slate-900: #1d1d1f;
+  --color-slate-950: #0b0b0c;
+}
+
+@layer base {
+  body {
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.006em;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.022em;
+  }
 }
 
 @layer components {
   .btn-primary,
   .btn-secondary,
   .btn-gold,
+  .btn-champagne,
   .btn-danger {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-2 font-medium transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 motion-reduce:active:scale-100;
   }
   .btn-primary {
-    @apply bg-brand-700 text-white hover:bg-brand-800;
+    @apply bg-brand-800 text-white hover:bg-brand-600;
   }
   .btn-secondary {
-    @apply border border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+    @apply border border-slate-300 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-50;
   }
   .btn-gold {
-    @apply border-2 border-gold-500 bg-white text-gold-800 hover:bg-gold-50;
+    @apply border border-gold-500 bg-white text-gold-800 hover:bg-gold-50;
+  }
+  /* The one call to action on a dark band, in brushed champagne. */
+  .btn-champagne {
+    background: linear-gradient(180deg, #ecdcbd 0%, #cfb284 48%, #b49064 52%, #c8a877 100%);
+    color: var(--color-brand-950);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.55),
+      0 1px 2px rgb(0 0 0 / 0.25);
+  }
+  .btn-champagne:hover {
+    filter: brightness(1.06);
   }
   .btn-danger {
     @apply bg-red-700 text-white hover:bg-red-800;
@@ -50,18 +91,275 @@
     @apply mb-1 block text-sm font-medium text-slate-800;
   }
   .field-input {
-    @apply block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 focus:border-brand-700 focus:outline-2 focus:outline-brand-700/30;
+    @apply block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 transition-colors hover:border-slate-400 focus:border-gold-500 focus:outline-4 focus:outline-gold-500/20 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-brand-800 file:transition-colors hover:file:bg-brand-100;
   }
   .card {
-    @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+    @apply rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_16px_-8px_rgb(0_0_0/0.08)];
+  }
+  /* Brushed champagne, for the one button that matters most on a dark band. */
+  .metal-champagne {
+    background: linear-gradient(180deg, #ecdcbd 0%, #cfb284 48%, #b49064 52%, #c8a877 100%);
+    color: var(--color-brand-950);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.55),
+      0 1px 2px rgb(0 0 0 / 0.25);
+  }
+  .metal-champagne:hover {
+    filter: brightness(1.05);
+  }
+  /* Brushed silver, for tiles and secondary surfaces. */
+  .metal-silver {
+    background: linear-gradient(180deg, #fbfbfc 0%, #e9e9ec 55%, #dcdce0 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      0 1px 2px rgb(0 0 0 / 0.08);
+  }
+  /* Graphite, like an anodised Space Black finish. */
+  .metal-graphite {
+    background: linear-gradient(180deg, #3a3a3c 0%, #232325 60%, #1b1b1d 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 1px 2px rgb(0 0 0 / 0.3);
+  }
+  /* Champagne lettering with a soft sheen, for a single headline word. */
+  .text-metal {
+    background: linear-gradient(180deg, #f1e3c6 0%, #d3b78a 45%, #b08c5e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
+  /* Messages slide in, so a result is noticed. */
   .form-error {
-    @apply rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800;
+    @apply rounded-lg border-l-4 border-red-600 bg-red-50 px-3 py-2 text-sm text-red-800;
+    animation: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .form-success {
-    @apply rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-800;
+    @apply rounded-lg border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 text-sm text-emerald-900;
+    animation: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* Motion. Every animation here is switched off for visitors who ask for reduced
+   motion, and nothing depends on it to be readable. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+}
+@keyframes ken-burns {
+  to {
+    transform: scale(1.1);
+  }
+}
+/* The hero has three photos on a 21s loop. The first sits underneath and never
+   moves; the second and third fade in over it in turn, then fade away to show the
+   first again. */
+@keyframes hero-slide-2 {
+  0%,
+  28% {
+    opacity: 0;
+  }
+  34%,
+  72% {
+    opacity: 1;
+  }
+  73%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes hero-slide-3 {
+  0%,
+  66% {
+    opacity: 0;
+  }
+  72%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes bob {
+  50% {
+    transform: translateY(-0.5rem);
+  }
+}
+@keyframes grow {
+  from {
+    width: 0;
+  }
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-1rem) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--fall, 20rem)) rotate(var(--spin, 540deg));
+  }
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes ping-soft {
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@layer utilities {
+  /* Set --delay inline to stagger a group, e.g. style={{ "--delay": "150ms" }}. */
+  .fade-up {
+    animation: fade-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
+  }
+  .ken-burns {
+    animation: ken-burns 24s ease-in-out infinite alternate;
+  }
+  .hero-slide-2,
+  .hero-slide-3 {
+    opacity: 0;
+  }
+  .hero-slide-2 {
+    animation: hero-slide-2 21s linear infinite;
+  }
+  .hero-slide-3 {
+    animation: hero-slide-3 21s linear infinite;
+  }
+  .bob {
+    animation: bob 5s ease-in-out infinite;
+  }
+  .grow-bar {
+    animation: grow 1.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  }
+  /* A light sweep across a loading placeholder. */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.6), transparent);
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  .pop-in {
+    animation: pop-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
+  }
+  /* Draws an SVG stroke. Give the path pathLength="1". */
+  .draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 0.7s cubic-bezier(0.65, 0, 0.35, 1) var(--delay, 0ms) forwards;
+  }
+  .confetti {
+    animation: confetti-fall var(--duration, 3s) cubic-bezier(0.25, 0.6, 0.5, 1) var(--delay, 0ms)
+      both;
+  }
+  .ping-soft {
+    animation: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  /* Scrolls a row that holds its items twice, so the loop is seamless. Pauses on
+     hover so people can read it. */
+  .marquee {
+    animation: marquee var(--duration, 40s) linear infinite;
+  }
+  .marquee:hover {
+    animation-play-state: paused;
+  }
+  /* Fades a container's children in one after another. */
+  .stagger-children > * {
+    animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .stagger-children > :nth-child(2) {
+    animation-delay: 70ms;
+  }
+  .stagger-children > :nth-child(3) {
+    animation-delay: 140ms;
+  }
+  .stagger-children > :nth-child(4) {
+    animation-delay: 210ms;
+  }
+  .stagger-children > :nth-child(5) {
+    animation-delay: 280ms;
+  }
+  .stagger-children > :nth-child(n + 6) {
+    animation-delay: 350ms;
+  }
+  /* Rises into place as it scrolls into view. Browsers without scroll-driven
+     animations simply show it. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .ken-burns,
+  .hero-slide-2,
+  .hero-slide-3,
+  .bob,
+  .grow-bar,
+  .reveal,
+  .shimmer::after,
+  .pop-in,
+  .draw,
+  .ping-soft,
+  .marquee,
+  .stagger-children > *,
+  .form-error,
+  .form-success {
+    animation: none !important;
+  }
+  .draw {
+    stroke-dashoffset: 0;
+  }
+  /* Confetti is pure decoration, so it simply isn't shown. */
+  .confetti {
+    display: none;
   }
 }

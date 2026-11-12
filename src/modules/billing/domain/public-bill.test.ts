@@ -7,6 +7,9 @@ import {
   initialsOf,
   parseFeedFilter,
   percentFunded,
+  billOfTheDay,
+  harareDay,
+  summariseNeed,
   type PublicBill,
 } from "./public-bill";
 
@@ -30,6 +33,64 @@ const bill = (overrides: Partial<PublicBill>): PublicBill => ({
   confirmedAt: day(-4),
   fundedAt: null,
   ...overrides,
+});
+
+describe("bill of the day", () => {
+  const bills = ["c", "a", "b"].map((id) => bill({ id }));
+
+  it("uses the day in Harare, two hours ahead of UTC", () => {
+    expect(harareDay(new Date("2027-01-10T21:59:00Z"))).toBe("2027-01-10");
+    expect(harareDay(new Date("2027-01-10T22:00:00Z"))).toBe("2027-01-11");
+  });
+
+  it("stays the same all day, whatever order the bills arrive in", () => {
+    const morning = billOfTheDay(bills, new Date("2027-01-10T05:00:00Z"));
+    const evening = billOfTheDay([...bills].reverse(), new Date("2027-01-10T21:00:00Z"));
+    expect(morning?.id).toBe(evening?.id);
+  });
+
+  it("moves to the next bill each day, going round them all", () => {
+    const ids = [10, 11, 12, 13].map(
+      (date) => billOfTheDay(bills, new Date(`2027-01-${date}T08:00:00Z`))?.id,
+    );
+    expect(new Set(ids.slice(0, 3)).size).toBe(3);
+    expect(ids[3]).toBe(ids[0]);
+  });
+
+  it("is null with nothing open", () => {
+    expect(billOfTheDay([], NOW)).toBeNull();
+  });
+});
+
+describe("need summary", () => {
+  it("adds up what is still needed, counting each school once", () => {
+    const summary = summariseNeed([
+      bill({ id: "a", schoolId: "uni", confirmedCents: 20_000, raisedCents: 5_000 }),
+      bill({ id: "b", schoolId: "uni", confirmedCents: 10_000, raisedCents: 0 }),
+      bill({ id: "c", schoolId: "poly", confirmedCents: 30_001, raisedCents: 0 }),
+    ]);
+    expect(summary).toEqual({
+      openBills: 3,
+      schools: 2,
+      remainingCents: 55_001,
+      averageCents: 18_334,
+    });
+  });
+
+  it("never counts an overfunded bill as negative", () => {
+    expect(
+      summariseNeed([bill({ confirmedCents: 10_000, raisedCents: 12_000 })]).remainingCents,
+    ).toBe(0);
+  });
+
+  it("is all zeros with nothing open", () => {
+    expect(summariseNeed([])).toEqual({
+      openBills: 0,
+      schools: 0,
+      remainingCents: 0,
+      averageCents: 0,
+    });
+  });
 });
 
 describe("initials", () => {

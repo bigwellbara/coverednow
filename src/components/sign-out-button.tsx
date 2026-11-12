@@ -8,10 +8,11 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={() => signOut({ callbackUrl: "/" })}
-      className="inline-flex min-h-11 shrink-0 items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-950"
+      title="Sign out"
+      className="grid size-8 shrink-0 place-items-center rounded-full text-slate-500 transition-colors hover:bg-black/[0.05] hover:text-slate-900"
     >
       <LogOut className="size-4" aria-hidden />
-      <span className="sr-only sm:not-sr-only">Sign out</span>
+      <span className="sr-only">Sign out</span>
     </button>
   );
 }

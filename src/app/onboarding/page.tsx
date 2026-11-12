@@ -1,6 +1,8 @@
-import { CircleAlert, CircleCheck, Clock, FileCheck } from "lucide-react";
+import { Check, CircleAlert, CircleCheck, Clock, FileCheck, Lock } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PageHero } from "@/components/page-hero";
+import { delay, stagger } from "@/lib/motion";
 import { getVerificationService } from "@/modules/identity";
 import { requireApplicant } from "@/modules/identity/adapters/session";
 import {
@@ -16,18 +18,55 @@ function Banner(props: {
   children: ReactNode;
 }) {
   const tones = {
-    info: "bg-sky-50 text-sky-900",
-    good: "bg-brand-50 text-brand-900",
-    warn: "bg-amber-50 text-amber-900",
+    info: "border-sky-200 bg-sky-50 text-sky-900",
+    good: "border-brand-200 bg-brand-50 text-brand-900",
+    warn: "border-amber-200 bg-amber-50 text-amber-900",
   };
   return (
-    <div className={`flex gap-3 rounded-xl p-4 ${tones[props.tone]}`}>
-      <span className="shrink-0">{props.icon}</span>
+    <div className={`fade-up flex gap-3 rounded-2xl border p-4 ${tones[props.tone]}`} style={delay(200)}>
+      <span className="pop-in shrink-0" style={delay(350)}>
+        {props.icon}
+      </span>
       <div>
         <p className="font-semibold">{props.title}</p>
         <p className="mt-1 text-sm">{props.children}</p>
       </div>
     </div>
+  );
+}
+
+const STEPS = ["Your details", "Documents", "Review", "Verified"];
+
+function Stepper({ current }: { current: number }) {
+  return (
+    <ol className="grid grid-cols-4 gap-2" aria-label="Verification progress">
+      {STEPS.map((label, index) => {
+        const done = index < current;
+        const active = index === current;
+        return (
+          <li key={label} className="fade-up space-y-2" style={stagger(index, 90, 300)}>
+            <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-white/15">
+              <span
+                className={`grow-bar block h-full rounded-full ${
+                  done ? "w-full bg-gold-400" : active ? "w-1/2 bg-gold-400/70" : "w-0"
+                }`}
+              />
+            </span>
+            <span
+              className={`flex items-center gap-1.5 text-xs font-semibold sm:text-sm ${
+                done || active ? "text-white" : "text-brand-100/60"
+              }`}
+            >
+              {done && <Check className="size-3.5 shrink-0 text-gold-400" aria-hidden />}
+              {label}
+              <span className="sr-only">
+                {done ? " (done)" : active ? " (current step)" : " (to come)"}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -38,15 +77,38 @@ export default async function OnboardingPage() {
   const isGuardian = applicant.role === "GUARDIAN";
   const iconClass = "size-5";
 
-  return (
-    <>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <h1 className="text-2xl font-bold">Verify your account</h1>
+  const current =
+    stage === "APPROVED"
+      ? STEPS.length
+      : stage === "IN_REVIEW"
+        ? 2
+        : student === null
+          ? 0
+          : missing.length > 0
+            ? 1
+            : 2;
 
+  return (
+    <main>
+      <PageHero
+        width="3xl"
+        eyebrow="Verification"
+        title="Verify your account"
+        subtitle={
+          stage === "DRAFT"
+            ? "Before a fee bill can be listed, we check who you are."
+            : undefined
+        }
+      >
+        <Stepper current={current} />
+      </PageHero>
+
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         {stage === "DRAFT" && (
-          <p className="text-slate-600">
-            Before a fee bill can be listed, we check who you are. Only our review
-            team can see these documents, and they are never shown to donors.
+          <p className="fade-up flex gap-2 text-sm text-slate-600" style={delay(200)}>
+            <Lock className="size-4 shrink-0 text-brand-700" aria-hidden />
+            Only our review team can see these documents, and they are never shown to
+            donors.
           </p>
         )}
         {stage === "IN_REVIEW" && (
@@ -75,13 +137,20 @@ export default async function OnboardingPage() {
             title="We need you to fix something"
             icon={<CircleAlert className={iconClass} aria-hidden />}
           >
-            {overview.rejectionReason} Please update your details or documents,
-            then submit again.
+            {overview.rejectionReason} Please update your details or documents, then
+            submit again.
           </Banner>
         )}
 
-        <section className="card space-y-4" aria-labelledby="student-heading">
-          <h2 id="student-heading" className="text-lg font-semibold">
+        <section
+          className="fade-up card space-y-4 p-6"
+          style={delay(300)}
+          aria-labelledby="student-heading"
+        >
+          <h2 id="student-heading" className="flex items-center gap-3 text-lg font-semibold">
+            <span className="grid size-8 place-items-center rounded-full bg-brand-700 text-sm font-semibold text-white">
+              1
+            </span>
             {isGuardian ? "The student in your care" : "Your student details"}
           </h2>
           {editable ? (
@@ -99,33 +168,45 @@ export default async function OnboardingPage() {
           )}
         </section>
 
-        <section className="card space-y-4" aria-labelledby="documents-heading">
-          <h2 id="documents-heading" className="text-lg font-semibold">
+        <section
+          className="fade-up card space-y-4 p-6"
+          style={delay(400)}
+          aria-labelledby="documents-heading"
+        >
+          <h2 id="documents-heading" className="flex items-center gap-3 text-lg font-semibold">
+            <span className="grid size-8 place-items-center rounded-full bg-brand-700 text-sm font-semibold text-white">
+              2
+            </span>
             Documents
           </h2>
           {documents.length > 0 && (
-            <ul className="space-y-1">
+            <ul className="flex flex-wrap gap-2">
               {documents.map((document) => (
-                <li key={document.id} className="flex items-center gap-2 text-sm">
-                  <FileCheck
-                    className="size-4 shrink-0 text-brand-700"
-                    aria-hidden
-                  />
+                <li key={document.id} className="chip bg-brand-50 px-3 py-1 text-brand-800">
+                  <FileCheck className="size-3.5 shrink-0" aria-hidden />
                   {DOCUMENT_KIND_LABELS[document.kind]} uploaded
                 </li>
               ))}
             </ul>
           )}
           {editable && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {documentRequirements(applicant.role).map((requirement) => {
                 const isMissing = missing.some((m) => m.id === requirement.id);
                 return (
-                  <div key={requirement.id} className="space-y-3">
-                    <h3 className="font-medium">
+                  <div
+                    key={requirement.id}
+                    className={`space-y-3 rounded-xl border p-4 transition-colors ${
+                      isMissing ? "border-dashed border-slate-300" : "border-brand-200 bg-brand-50/40"
+                    }`}
+                  >
+                    <h3 className="flex flex-wrap items-center gap-2 font-medium">
+                      {!isMissing && (
+                        <CircleCheck className="size-4 text-brand-700" aria-hidden />
+                      )}
                       {requirement.label}
                       {!isMissing && (
-                        <span className="ml-2 text-sm font-normal text-slate-500">
+                        <span className="text-sm font-normal text-slate-500">
                           (done, upload again to replace)
                         </span>
                       )}
@@ -139,9 +220,11 @@ export default async function OnboardingPage() {
         </section>
 
         {editable && (
-          <SubmitForm canSubmit={missing.length === 0 && student !== null} />
+          <div className="fade-up" style={delay(500)}>
+            <SubmitForm canSubmit={missing.length === 0 && student !== null} />
+          </div>
         )}
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

@@ -1,10 +1,13 @@
-import { ArrowLeft, CircleAlert, ExternalLink, FileText } from "lucide-react";
+import { CircleAlert, ExternalLink, FileText, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BillStatusChip } from "@/components/bill-status-chip";
+import { ProgressBar } from "@/components/progress-bar";
+import { AdminHeader } from "../../admin-header";
 import { getBillService } from "@/modules/billing";
 import { BILL_STATUS_LABELS, termLabel } from "@/modules/billing/domain/bill";
 import { formatMoney } from "@/modules/billing/domain/money";
-import { isPublicStatus } from "@/modules/billing/domain/public-bill";
+import { isPublicStatus, percentFunded } from "@/modules/billing/domain/public-bill";
 import { requireAdmin } from "@/modules/identity/adapters/session";
 import { getPaymentService } from "@/modules/payments";
 import { RejectBillForm, ResendLinksForm } from "../forms";
@@ -29,27 +32,27 @@ export default async function AdminBillPage({
   const canReject = isWaiting || bill.status === "SCHOOL_CONFIRMED";
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-      <Link
-        href="/admin/bills"
-        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        Back to bills
-      </Link>
-      <h1 className="text-2xl font-bold">{bill.billerName}</h1>
-      {isPublicStatus(bill.status) && (
-        <Link
-          href={`/browse/${bill.id}`}
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800 underline"
-        >
-          <ExternalLink className="size-4" aria-hidden />
-          Public page
-        </Link>
-      )}
+    <main className="stagger-children mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <AdminHeader
+        back={{ href: "/admin/bills", label: "Back to bills" }}
+        icon={<ReceiptText className="size-5" aria-hidden />}
+        title={bill.billerName}
+        meta={<BillStatusChip status={bill.status} />}
+        actions={
+          isPublicStatus(bill.status) && (
+            <Link href={`/browse/${bill.id}`} className="btn-secondary">
+              <ExternalLink className="size-4" aria-hidden />
+              Public page
+            </Link>
+          )
+        }
+      />
 
       {surplusCents > 0 && (
-        <div role="alert" className="flex gap-3 rounded-xl bg-amber-50 p-4 text-amber-900">
+        <div
+          role="alert"
+          className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900"
+        >
           <CircleAlert className="size-5 shrink-0" aria-hidden />
           <p className="text-sm">
             {formatMoney(surplusCents)} has been received that this bill can&apos;t
@@ -110,6 +113,15 @@ export default async function AdminBillPage({
           {bill.confirmedCents !== null && ` of ${formatMoney(bill.confirmedCents)}`}
           {bill.fundedAt && `, fully funded on ${bill.fundedAt.toISOString().slice(0, 10)}`}
         </p>
+        {bill.confirmedCents !== null && (
+          <ProgressBar
+            percent={percentFunded({
+              confirmedCents: bill.confirmedCents,
+              raisedCents: bill.raisedCents,
+            })}
+            label="Funded so far"
+          />
+        )}
         {donations.length === 0 ? (
           <p className="text-sm text-slate-600">No donations yet.</p>
         ) : (

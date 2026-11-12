@@ -8,6 +8,17 @@ export function formatDate(date: Date): string {
   });
 }
 
+/** "just now", "5 min ago", "3 hours ago", "yesterday", then the date. */
+export function timeAgo(date: Date, now: Date): string {
+  const minutes = Math.floor((now.getTime() - date.getTime()) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+  if (hours < 48) return "yesterday";
+  return formatDate(date);
+}
+
 /** A WhatsApp link that opens a new message with this text, for the user to send. */
 export function whatsAppShareUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;

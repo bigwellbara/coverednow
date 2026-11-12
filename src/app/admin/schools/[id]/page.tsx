@@ -1,6 +1,7 @@
-import { ArrowLeft, CircleAlert, CircleCheck } from "lucide-react";
-import Link from "next/link";
+import { CircleAlert, CircleCheck } from "lucide-react";
 import { notFound } from "next/navigation";
+import { SchoolIcon } from "@/components/school-icon";
+import { AdminHeader } from "../../admin-header";
 import { BILLER_ERROR_MESSAGES, getBillerService } from "@/modules/billing";
 import { requireAdmin } from "@/modules/identity/adapters/session";
 import {
@@ -25,15 +26,13 @@ export default async function SchoolPage({
   const canVerify = school.blockers.length === 0;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-      <Link
-        href="/admin/schools"
-        className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-800"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        Back to schools
-      </Link>
-      <h1 className="text-2xl font-bold">{school.name}</h1>
+    <main className="stagger-children mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <AdminHeader
+        back={{ href: "/admin/schools", label: "Back to schools" }}
+        icon={<SchoolIcon type={school.type} className="size-5" />}
+        title={school.name}
+        meta={school.city}
+      />
 
       <section className="card space-y-3" aria-labelledby="status-heading">
         <h2 id="status-heading" className="flex items-center gap-2 font-semibold">

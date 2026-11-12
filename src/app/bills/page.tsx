@@ -1,7 +1,12 @@
-import { ChevronRight, Plus } from "lucide-react";
+import { FileText, Plus, ReceiptText, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import teacherClass from "@/assets/home/teacher-class.jpg";
+import { BillStatusChip } from "@/components/bill-status-chip";
+import { EmptyState } from "@/components/empty-state";
+import { ListRow } from "@/components/list-row";
+import { heroButton, PageHero } from "@/components/page-hero";
 import { getBillService } from "@/modules/billing";
-import { BILL_STATUS_LABELS, termLabel } from "@/modules/billing/domain/bill";
+import { termLabel } from "@/modules/billing/domain/bill";
 import { formatMoney } from "@/modules/billing/domain/money";
 import { requireApplicant } from "@/modules/identity/adapters/session";
 
@@ -14,57 +19,68 @@ export default async function BillsPage() {
   ]);
 
   return (
-    <>
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">Fee bills</h1>
-          {canSubmit && (
-            <Link href="/bills/new" className="btn-primary">
+    <main>
+      <PageHero
+        image={teacherClass}
+        width="3xl"
+        eyebrow="My bills"
+        title="Fee bills"
+        subtitle="Each bill is confirmed by the school before donors see it, and money goes straight to the school."
+        actions={
+          canSubmit && (
+            <Link href="/bills/new" className={heroButton}>
               <Plus className="size-4" aria-hidden />
               New bill
             </Link>
-          )}
-        </div>
+          )
+        }
+      />
 
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         {!canSubmit && (
-          <p className="text-slate-600">
-            You can submit a bill once your account is verified.{" "}
-            <Link href="/onboarding" className="font-medium text-brand-800 underline">
-              Check your verification
-            </Link>
-          </p>
+          <div className="fade-up flex gap-3 rounded-2xl border border-gold-200 bg-gold-50 p-4 text-gold-900">
+            <ShieldAlert className="size-5 shrink-0" aria-hidden />
+            <p className="text-sm">
+              You can submit a bill once your account is verified.{" "}
+              <Link href="/onboarding" className="font-semibold underline">
+                Check your verification
+              </Link>
+            </p>
+          </div>
         )}
 
         {bills.length === 0 ? (
-          canSubmit && <p className="text-slate-600">No bills yet.</p>
+          canSubmit && (
+            <EmptyState
+              icon={ReceiptText}
+              title="No bills yet"
+              action={
+                <Link href="/bills/new" className="btn-primary">
+                  <Plus className="size-4" aria-hidden />
+                  Submit your first bill
+                </Link>
+              }
+            >
+              Add your fee bill and we&apos;ll ask the school to confirm it. Once it&apos;s
+              confirmed, donors can start covering it.
+            </EmptyState>
+          )
         ) : (
           <ul className="space-y-3">
-            {bills.map((bill) => (
-              <li key={bill.id}>
-                <Link
-                  href={`/bills/${bill.id}`}
-                  className="card flex items-center justify-between gap-3 hover:border-brand-700"
-                >
-                  <span>
-                    <span className="block font-medium">{bill.billerName}</span>
-                    <span className="block text-sm text-slate-500">
-                      {termLabel(bill.term)},{" "}
-                      {formatMoney(bill.confirmedCents ?? bill.claimedCents)}
-                    </span>
-                    <span className="mt-1 block text-sm text-slate-700">
-                      {BILL_STATUS_LABELS[bill.status]}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    className="size-5 shrink-0 text-slate-400"
-                    aria-hidden
-                  />
-                </Link>
-              </li>
+            {bills.map((bill, index) => (
+              <ListRow
+                key={bill.id}
+                index={index}
+                href={`/bills/${bill.id}`}
+                icon={<FileText className="size-5" aria-hidden />}
+                title={bill.billerName}
+                meta={`${termLabel(bill.term)}, ${formatMoney(bill.confirmedCents ?? bill.claimedCents)}`}
+                status={<BillStatusChip status={bill.status} />}
+              />
             ))}
           </ul>
         )}
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

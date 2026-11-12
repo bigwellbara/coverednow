@@ -1,9 +1,12 @@
-import { ChevronRight } from "lucide-react";
-import Link from "next/link";
+import { FileText, ReceiptText } from "lucide-react";
+import { BillStatusChip } from "@/components/bill-status-chip";
+import { EmptyState } from "@/components/empty-state";
+import { ListRow } from "@/components/list-row";
 import { getBillService } from "@/modules/billing";
-import { BILL_STATUS_LABELS, termLabel } from "@/modules/billing/domain/bill";
+import { termLabel } from "@/modules/billing/domain/bill";
 import { formatMoney } from "@/modules/billing/domain/money";
 import { requireAdmin } from "@/modules/identity/adapters/session";
+import { AdminHeader } from "../admin-header";
 
 export default async function AdminBillsPage() {
   await requireAdmin();
@@ -11,30 +14,27 @@ export default async function AdminBillsPage() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-      <h1 className="text-2xl font-bold">Bills</h1>
+      <AdminHeader
+        title="Bills"
+        icon={<ReceiptText className="size-5" aria-hidden />}
+        meta={bills.length === 1 ? "1 bill" : `${bills.length} bills`}
+      />
       {bills.length === 0 ? (
-        <p className="text-slate-600">No bills yet.</p>
+        <EmptyState icon={ReceiptText} title="No bills yet">
+          Bills appear here as students and guardians submit them.
+        </EmptyState>
       ) : (
         <ul className="space-y-3">
-          {bills.map((bill) => (
-            <li key={bill.id}>
-              <Link
-                href={`/admin/bills/${bill.id}`}
-                className="card flex items-center justify-between gap-3 hover:border-brand-700"
-              >
-                <span>
-                  <span className="block font-medium">{bill.billerName}</span>
-                  <span className="block text-sm text-slate-500">
-                    {bill.regNumber}, {termLabel(bill.term)},{" "}
-                    {formatMoney(bill.confirmedCents ?? bill.claimedCents)}
-                  </span>
-                  <span className="mt-1 block text-sm text-slate-700">
-                    {BILL_STATUS_LABELS[bill.status]}
-                  </span>
-                </span>
-                <ChevronRight className="size-5 shrink-0 text-slate-400" aria-hidden />
-              </Link>
-            </li>
+          {bills.map((bill, index) => (
+            <ListRow
+              key={bill.id}
+              index={index}
+              href={`/admin/bills/${bill.id}`}
+              icon={<FileText className="size-5" aria-hidden />}
+              title={bill.billerName}
+              meta={`${bill.regNumber}, ${termLabel(bill.term)}, ${formatMoney(bill.confirmedCents ?? bill.claimedCents)}`}
+              status={<BillStatusChip status={bill.status} />}
+            />
           ))}
         </ul>
       )}

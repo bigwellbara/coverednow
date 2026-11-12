@@ -278,6 +278,11 @@ export function createBillService(deps: {
   baseUrl: string;
   now?: () => Date;
   log?: (message: string) => void;
+  /**
+   * Called once when a bill becomes fully funded, after the change is saved, to
+   * tell its donors and owner. A failure here is logged, never undone.
+   */
+  onFunded?: (bill: { id: string; ownerId: string }) => Promise<void>;
 }) {
   const { store, students, files, ledger, messages, tokenSecret, baseUrl } = deps;
   const now = deps.now ?? (() => new Date());
@@ -385,6 +390,15 @@ export function createBillService(deps: {
     /** Null unless the school has confirmed the bill, so nothing unconfirmed leaks. */
     findPublic,
 
+    /** Bills that reached their full amount since a moment, most recent first. */
+    async listRecentlyFunded(since: Date): Promise<PublicBill[]> {
+      const bills = await store.listByStatus(["FUNDED", "PAID", "RECEIPT_CONFIRMED"]);
+      const recent = bills.filter((bill) => bill.fundedAt && bill.fundedAt >= since);
+      return (await toPublic(recent)).sort(
+        (a, b) => (b.fundedAt?.getTime() ?? 0) - (a.fundedAt?.getTime() ?? 0),
+      );
+    },
+
     async findPublicMany(billIds: readonly string[]): Promise<PublicBill[]> {
       if (billIds.length === 0) return [];
       return toPublic(await store.findMany(billIds));
@@ -455,6 +469,17 @@ export function createBillService(deps: {
         : Math.max(after.raisedCents - (before.confirmedCents ?? 0), 0);
       if (surplusCents > 0) {
         log(`Bill ${billId}: ${surplusCents} cents received beyond what it can take`);
+      }
+      if (before.status !== "FUNDED" && after.status === "FUNDED" && deps.onFunded) {
+        try {
+          await deps.onFunded({ id: billId, ownerId: before.ownerId });
+        } catch (error) {
+          log(
+            `Bill ${billId}: funded, but telling people failed: ${
+              error instanceof Error ? error.message : "unknown error"
+            }`,
+          );
+        }
       }
       return {
         ok: true,

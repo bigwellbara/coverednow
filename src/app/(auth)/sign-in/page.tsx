@@ -1,4 +1,6 @@
+import { KeyRound } from "lucide-react";
 import { redirect } from "next/navigation";
+import { delay } from "@/lib/motion";
 import { safeNextPath } from "@/modules/identity/domain/account";
 import { currentUser } from "@/modules/identity/adapters/session";
 import { PhoneAuthForm } from "../phone-auth-form";
@@ -12,14 +14,21 @@ export default async function SignInPage({
   if (await currentUser()) redirect(next ?? "/dashboard");
 
   return (
-    <main className="mx-auto max-w-md px-4 py-10">
-      <h1 className="text-2xl font-bold">Sign in</h1>
-      <p className="mt-1 mb-6 text-slate-600">
+    <>
+      <span className="pop-in mb-5 grid size-12 place-items-center rounded-2xl metal-graphite text-gold-300 shadow-lg">
+        <KeyRound className="size-6" aria-hidden />
+      </span>
+      <h1 className="fade-up text-3xl font-semibold tracking-tight text-brand-900">
+        Welcome back
+      </h1>
+      <p className="fade-up mt-2 mb-6 text-slate-600" style={delay(80)}>
         {next?.startsWith("/browse/")
           ? "Sign in to give. We'll bring you straight back to the bill."
-          : "We'll send you a code by WhatsApp or email."}
+          : "Sign in with a code we send by WhatsApp or email. No password needed."}
       </p>
-      <PhoneAuthForm mode="sign-in" next={next} />
-    </main>
+      <div className="fade-up" style={delay(160)}>
+        <PhoneAuthForm mode="sign-in" next={next} />
+      </div>
+    </>
   );
 }
